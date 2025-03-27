@@ -6,7 +6,9 @@ import argparse
 import logging
 import torch
 import torch.nn as nn
-from models.cnn_gan import CNNGenerator, CNNDiscriminator
+from models.cnn_gan import Generator, Discriminator
+# from models.dnn_gan import Generator, Discriminator
+# from models.rnn_gan import Generator, Discriminator
 from scripts.data_loader import get_dataloader
 
 
@@ -52,8 +54,8 @@ def main():
         'data/ue_jamming_detection/train.csv', window_size=args.window, device=device, batch_size=args.batch_size, train_test_split=.2)
     # valid, _ = get_dataloader('data/ue_jamming_detection/valid.csv', window_size=args.window, device=device, batch_size=args.batch_size)
 
-    generator = CNNGenerator().to(device)
-    discriminator = CNNDiscriminator().to(device)
+    generator = Generator().to(device)
+    discriminator = Discriminator().to(device)
 
     criterion = nn.BCELoss()
     optimizer_g = torch.optim.Adam(generator.parameters(), lr=0.0002)

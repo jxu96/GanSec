@@ -3,7 +3,7 @@ import torch.nn as nn
 from .backbone import GANModule
 
 
-class CNNGenerator(GANModule):
+class Generator(GANModule):
     def __init__(self,
                  data_shape=[5, 74],
                  label_embedding_shape=[5, 1],
@@ -13,7 +13,8 @@ class CNNGenerator(GANModule):
         super().__init__(data_shape, label_embedding_shape, n_labels)
 
         self.latent_noise_size = latent_noise_size
-        self.hidden_size = self.data_shape[0] * (self.data_shape[1]+1)
+        self.hidden_size = self.data_shape[0] * \
+            (self.data_shape[1]+self.label_embedding_shape[1])
         self.output_size = self.data_shape[0] * self.data_shape[1]
 
         self.conv1 = nn.Conv2d(1, 32, kernel_size=3, padding=1)
@@ -40,7 +41,7 @@ class CNNGenerator(GANModule):
         return self.forward(z, labels)
 
 
-class CNNDiscriminator(GANModule):
+class Discriminator(GANModule):
     def __init__(self,
                  data_shape=[5, 75],
                  label_embedding_shape=[5, 1],
