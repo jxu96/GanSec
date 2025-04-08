@@ -77,11 +77,11 @@ def main():
     train_loader, test_loader = get_dataloader(train, train_label, window_size=args.window, device=device, batch_size=args.batch_size, train_test_split=.2)
 
     # clf = Classifier().to(device)
-    # train_clf(clf, train_loader, test_loader, **args)
+    # train_clf(clf, train_loader, test_loader, args)
 
     generator = Generator().to(device)
     discriminator = Discriminator().to(device)
-    train_gan(generator, discriminator, train_loader, test_loader, device, **args)
+    train_gan(generator, discriminator, train_loader, test_loader, device, args)
 
     
 

@@ -18,7 +18,8 @@ def get_dataloader(df: pd.DataFrame, label, window_size: int, device, batch_size
                 window.index.min(), window.index.max()))
             continue
         windows.append(window.values)
-        labels.append(label[i:i+window_size])
+        # labels.append(label[i:i+window_size])
+        labels.append([label[i+window_size-1]])
     dataset = TensorDataset(torch.tensor(np.array(windows), dtype=torch.float32, device=device),
                             torch.tensor(np.array(labels), dtype=torch.float32, device=device))
 

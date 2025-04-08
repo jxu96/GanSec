@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import logging
 
-def train_clf(clf, train_loader, test_loader, **args):
+def train_clf(clf, train_loader, test_loader, args):
     logger = logging.getLogger('train_clf')
 
     criterion = nn.BCELoss()
@@ -42,7 +42,7 @@ def train_clf(clf, train_loader, test_loader, **args):
                 epoch, train_loss, test_loss))
     logger.info('Classifier training complete.')
 
-def train_gan(generator, discriminator, train_loader, test_loader, device, **args):
+def train_gan(generator, discriminator, train_loader, test_loader, device, args):
     logger = logging.getLogger('train_gan')
     
     criterion = nn.BCELoss()
