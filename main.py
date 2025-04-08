@@ -7,7 +7,7 @@ import logging
 import torch
 import torch.nn as nn
 from models.rnn_clf import Classifier
-from models.cnn_gan import Generator, Discriminator
+from models.cnn_gan import Generator, Discriminator, LabeledDiscriminator
 # from models.dnn_gan import Generator, Discriminator
 # from models.rnn_gan import Generator, Discriminator
 from scripts.gan import train_clf, train_gan
@@ -59,14 +59,12 @@ def main():
         else "mps" if torch.backends.mps.is_available()
         else "cpu"
     )
-    clf = Classifier().to(device)
-    train_clf(clf, device, **args)
+    # clf = Classifier().to(device)
+    # train_clf(clf, device, args)
 
     generator = Generator().to(device)
-    discriminator = Discriminator().to(device)
-    train_gan(generator, discriminator, device, **args)
-
-    
+    discriminator = LabeledDiscriminator().to(device)
+    train_gan(generator, discriminator, device, args)
 
 
 if __name__ == "__main__":

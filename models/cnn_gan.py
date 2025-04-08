@@ -73,3 +73,36 @@ class Discriminator(GANModule):
         x = self.sigmod(x)
 
         return x
+
+
+class LabeledDiscriminator(GANModule):
+    def __init__(self,
+                 data_shape=[5, 74],
+                 label_embedding_shape=[5, 1],
+                 n_labels=5
+                 ):
+        super().__init__(data_shape, label_embedding_shape, n_labels)
+
+        self.output_size = self.data_shape[0] * self.data_shape[1]
+
+        self.conv1 = nn.Conv2d(1, 32, kernel_size=3, padding=1)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
+        self.conv3 = nn.Conv2d(64, 32, kernel_size=3, padding=1)
+        self.fc1 = nn.Linear(32*self.output_size, 128)
+        self.fc2 = nn.Linear(128, 1)
+        self.sigmod = nn.Sigmoid()
+        self.fc3 = nn.Linear(128, n_labels)
+        # self.softmax = nn.Softmax(dim=1)
+
+    def forward(self, data):
+        data = data.reshape(-1, 1,
+                            self.data_shape[0], self.data_shape[1])
+        x = torch.relu(self.conv1(data))
+        x = torch.relu(self.conv2(x))
+        x = torch.relu(self.conv3(x))
+        x = torch.flatten(x, 1)
+        x = torch.relu(self.fc1(x))
+        y1 = self.fc2(x)
+        y1 = self.sigmod(y1)
+        y2 = self.fc3(x)
+        return y1, y2
