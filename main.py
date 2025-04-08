@@ -6,12 +6,14 @@ import argparse
 import logging
 import torch
 import torch.nn as nn
+import pandas as pd
 from models.rnn_clf import Classifier
 from models.cnn_gan import Generator, Discriminator
 # from models.dnn_gan import Generator, Discriminator
 # from models.rnn_gan import Generator, Discriminator
 from scripts.gan import train_clf, train_gan
-
+from scripts.data_loader import get_dataloader
+from sklearn.preprocessing import MinMaxScaler
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -31,7 +33,6 @@ def parse_args():
 
     return parser.parse_args()
 
-
 def configure_logging(debug=False):
     format = "%(asctime)s - [%(levelname)s] [%(name)s] %(message)s"
     current_time = time.asctime()
@@ -49,6 +50,14 @@ def configure_logging(debug=False):
         handlers=handlers
     )
 
+def get_dataset(file_path):
+    df = pd.read_csv(file_path)
+    df['Timestamp'] = pd.to_datetime(df['Timestamp'])
+    df.set_index('Timestamp', inplace=True)
+    label = df['Label'].values
+    df.drop(columns='Label', inplace=True)
+
+    return df, label
 
 def main():
     args = parse_args()
@@ -59,12 +68,20 @@ def main():
         else "mps" if torch.backends.mps.is_available()
         else "cpu"
     )
-    clf = Classifier().to(device)
-    train_clf(clf, device, **args)
+    scaler = MinMaxScaler()
+    train, train_label = get_dataset('data/ue_jamming_detection/train.csv')
+    valid, valid_label = get_dataset('data/ue_jamming_detection/valid.csv')
+    train[train.columns] = scaler.fit_transform(train)
+    valid[valid.columns] = scaler.transform(valid)
+
+    train_loader, test_loader = get_dataloader(train, train_label, window_size=args.window, device=device, batch_size=args.batch_size, train_test_split=.2)
+
+    # clf = Classifier().to(device)
+    # train_clf(clf, train_loader, test_loader, **args)
 
     generator = Generator().to(device)
     discriminator = Discriminator().to(device)
-    train_gan(generator, discriminator, device, **args)
+    train_gan(generator, discriminator, train_loader, test_loader, device, **args)
 
     
 

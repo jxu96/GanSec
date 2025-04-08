@@ -5,17 +5,10 @@ import torch
 from torch.utils.data import DataLoader, TensorDataset, random_split
 
 
-def get_dataloader(file_path: str, window_size: int, device, batch_size: int, train_test_split=.0):
+def get_dataloader(df: pd.DataFrame, label, window_size: int, device, batch_size: int, train_test_split=.0):
     logger = logging.getLogger('dataloader')
-    logger.info(f'Data file: {file_path}')
     logger.info(f'Window size: {window_size}')
     logger.info(f'Batch size: {batch_size}')
-
-    df = pd.read_csv(file_path)
-    df['Timestamp'] = pd.to_datetime(df['Timestamp'])
-    df.set_index('Timestamp', inplace=True)
-    label = df['Label'].values
-    df.drop(columns='Label', inplace=True)
 
     windows, labels = [], []
     for i in range(df.shape[0] - window_size + 1):

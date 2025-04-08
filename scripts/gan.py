@@ -1,13 +1,10 @@
 import torch
 import torch.nn as nn
 import logging
-from data_loader import get_dataloader
 
-def train_clf(clf, device, **args):
+def train_clf(clf, train_loader, test_loader, **args):
     logger = logging.getLogger('train_clf')
-    train_loader, test_loader = get_dataloader(
-        'data/ue_jamming_detection/train.csv', window_size=args.window, device=device, batch_size=args.batch_size, train_test_split=.2)
-    
+
     criterion = nn.BCELoss()
     optimizer = torch.optim.Adam(clf.parameters(), lr=args.lr_clf)
 
@@ -44,25 +41,9 @@ def train_clf(clf, device, **args):
             logger.info("epoch : {}, train loss : {}, test loss : {}".format(
                 epoch, train_loss, test_loss))
     logger.info('Classifier training complete.')
-    
-def validate_clf(clf, device, **args):
-    logger = logging.getLogger('validate_clf')
-    valid, _ = get_dataloader('data/ue_jamming_detection/valid.csv', window_size=args.window, device=device, batch_size=args.batch_size)
 
-        
-    for batch_idx, (data, targets) in enumerate(valid):
-        outputs = clf(data)
-
-        rounded_preds = torch.round(outputs)
-        correct = (rounded_preds == targets).float()  # Convert into float for division 
-        acc = correct.sum() / len(correct)
-
-def train_gan(generator, discriminator, device, **args):
+def train_gan(generator, discriminator, train_loader, test_loader, device, **args):
     logger = logging.getLogger('train_gan')
-    
-    train_loader, test_loader = get_dataloader(
-        'data/ue_jamming_detection/train.csv', window_size=args.window, device=device, batch_size=args.batch_size, train_test_split=.2)
-    # valid, _ = get_dataloader('data/ue_jamming_detection/valid.csv', window_size=args.window, device=device, batch_size=args.batch_size)
     
     criterion = nn.BCELoss()
     optimizer_g = torch.optim.Adam(generator.parameters(), lr=args.lr_g)
