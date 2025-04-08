@@ -3,8 +3,7 @@ import torch.nn as nn
 
 class Classifier(nn.Module):
     def __init__(self,
-                 data_shape=[5, 74],
-                 n_labels=5,
+                 data_shape=[5, 72],
                  lstm_hidden_size=128,
                  lstm_num_layers=1):
         super().__init__()
