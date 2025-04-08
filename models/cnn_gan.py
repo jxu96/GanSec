@@ -23,11 +23,10 @@ class Generator(GANModule):
         self.fc2 = nn.Linear(128, self.output_size)
 
     def forward(self, noise, labels):
-        labels = labels.reshape(-1,
-                                self.label_embedding_shape[0], self.label_embedding_shape[1])
+        labels = labels.repeat(1, self.label_embedding_shape[0]).reshape(-1,
+                                                                         self.label_embedding_shape[0], self.label_embedding_shape[1])
         # print("generator", noise.shape, labels.shape)
         x = torch.cat((noise, labels), dim=2).unsqueeze(dim=1)
-        # print(x.shape)
         x = torch.relu(self.conv1(x))
         x = torch.relu(self.conv2(x))
         x = torch.flatten(x, 1)
@@ -105,4 +104,5 @@ class LabeledDiscriminator(GANModule):
         y1 = self.fc2(x)
         y1 = self.sigmod(y1)
         y2 = self.fc3(x)
+        y2 = self.sigmod(y2)
         return y1, y2

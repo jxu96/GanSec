@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import logging
 
+
 def train_clf(clf, train_loader, test_loader, args):
     logger = logging.getLogger('train_clf')
 
@@ -42,9 +43,10 @@ def train_clf(clf, train_loader, test_loader, args):
                 epoch, train_loss, test_loss))
     logger.info('Classifier training complete.')
 
+
 def train_gan(generator, discriminator, train_loader, test_loader, device, args):
     logger = logging.getLogger('train_gan')
-    
+
     criterion = nn.BCELoss()
     optimizer_g = torch.optim.Adam(generator.parameters(), lr=args.lr_g)
     optimizer_d = torch.optim.Adam(discriminator.parameters(), lr=args.lr_d)
@@ -127,15 +129,11 @@ def train_gan(generator, discriminator, train_loader, test_loader, device, args)
     logger.info('GAN training complete.')
 
 
-def train_gan(generator, discriminator, device, args):
+def train_labeledgan(generator, discriminator, train_loader, test_loader, device, args):
     logger = logging.getLogger('train_gan')
 
-    train_loader, test_loader = get_dataloader(
-        'data/ue_jamming_detection/train.csv', window_size=args.window, device=device, batch_size=args.batch_size, train_test_split=.2)
-    # valid, _ = get_dataloader('data/ue_jamming_detection/valid.csv', window_size=args.window, device=device, batch_size=args.batch_size)
-
     criterion = nn.BCELoss()
-    criterion1 = nn.CrossEntropyLoss()
+    # criterion1 = nn.CrossEntropyLoss()
     optimizer_g = torch.optim.Adam(generator.parameters(), lr=args.lr_g)
     optimizer_d = torch.optim.Adam(discriminator.parameters(), lr=args.lr_d)
 
@@ -156,12 +154,13 @@ def train_gan(generator, discriminator, device, args):
 
             #
             pred_real, pred_real_class = discriminator(input)
+            # import pdb;pdb.set_trace()
             loss_real = criterion(pred_real, y_real) + \
-                criterion1(pred_real_class, label)
+                criterion(pred_real_class, label)
             X_fake = generator.generate_random(cur_size, device, label)
             pred_fake, pred_fake_class = discriminator(X_fake)
             loss_fake = criterion(pred_fake, y_fake) + \
-                criterion1(pred_fake_class, label)
+                criterion(pred_fake_class, label)
             loss_label = 0.0
             loss_d = (loss_real + loss_fake)/2 + loss_label
             train_loss_d += loss_d.item()
@@ -174,7 +173,7 @@ def train_gan(generator, discriminator, device, args):
             fake_sample = generator.generate_random(cur_size, device, label)
             pred_fake, pred_fake_class = discriminator(fake_sample)
             loss_g = criterion(pred_fake, y_real) + \
-                criterion1(pred_fake_class, label)
+                criterion(pred_fake_class, label)
             train_loss_g += loss_g.item()
             optimizer_d.zero_grad()
             optimizer_g.zero_grad()
@@ -201,12 +200,12 @@ def train_gan(generator, discriminator, device, args):
                     #
                     preal, preal_class = discriminator(input_test)
                     lreal = criterion(preal, y_real_test) + \
-                        criterion1(preal_class, label_test)
+                        criterion(preal_class, label_test)
                     xfake = generator.generate_random(
                         cur_size_test, device, label_test)
                     pfake, pfake_class = discriminator(xfake)
                     lfake = criterion(pfake, y_fake_test) + \
-                        criterion1(pfake_class, label_test)
+                        criterion(pfake_class, label_test)
                     ldtest = (lreal+lfake)/2.
                     test_loss_d += ldtest.item()
 
@@ -215,7 +214,7 @@ def train_gan(generator, discriminator, device, args):
                         cur_size_test, device, label_test)
                     pfake, pfake_class = discriminator(xfake)
                     lgtest = criterion(pfake, y_real_test) + \
-                        criterion1(pfake_class, label_test)
+                        criterion(pfake_class, label_test)
                     test_loss_g += lgtest.item()
 
             logger.info("epoch : {}, train loss d : {}, tranin loss g : {}, test loss d : {}, test loss g : {}".format(
