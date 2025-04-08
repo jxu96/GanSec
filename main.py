@@ -41,11 +41,11 @@ def configure_logging(debug=False):
     current_time = time.asctime()
     logging_file = '{}/logs/{}.out'.format(
         os.path.dirname(__file__), current_time.replace(' ', '_'))
+    os.makedirs(os.path.dirname(logging_file), exist_ok=True)
     handlers = [
         logging.StreamHandler(sys.stdout),
         logging.FileHandler(logging_file)
     ]
-    os.makedirs(os.path.dirname(logging_file), exist_ok=True)
 
     logging.basicConfig(
         level=logging.DEBUG if debug else logging.INFO,
