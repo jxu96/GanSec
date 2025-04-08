@@ -87,6 +87,9 @@ def train_gan(generator, discriminator, train_loader, test_loader, device, args)
             optimizer_g.zero_grad()
             loss_g.backward()
             optimizer_g.step()
+        
+        train_loss_g /= len(train_loader)
+        train_loss_d /= len(train_loader)
 
         if (epoch+1) % args.block_size_gan == 0 or epoch == 0:
             test_loss_g = 0.0
@@ -122,6 +125,9 @@ def train_gan(generator, discriminator, train_loader, test_loader, device, args)
                     lgtest = criterion(pfake, y_real_test)
                     test_loss_g += lgtest.item()
 
+            test_loss_g /= len(test_loader)
+            test_loss_d /= len(test_loader)
+            
             logger.info("epoch : {}, train loss d : {}, tranin loss g : {}, test loss d : {}, test loss g : {}".format(
                 epoch, train_loss_d, train_loss_g, test_loss_d, test_loss_g))
     logger.info('GAN training complete.')

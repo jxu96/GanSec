@@ -1,0 +1,17 @@
+2025-04-08 17:44:28,753 - [INFO] [dataloader] Window size: 5
+2025-04-08 17:44:28,753 - [INFO] [dataloader] Batch size: 64
+2025-04-08 17:44:30,063 - [INFO] [train_gan] Start training GAN ..
+2025-04-08 17:44:30,063 - [INFO] [train_gan] [epoch_num_gan]: 100
+2025-04-08 17:44:30,063 - [INFO] [train_gan] [lr-g]: 0.0002, [lr-d]: 0.0002
+2025-04-08 17:44:30,165 - [INFO] [train_gan] epoch : 0, train loss d : 0.5092010427462427, tranin loss g : 0.678399992616553, test loss d : 0.44483432471752166, test loss g : 0.621276032924652
+2025-04-08 17:44:30,934 - [INFO] [train_gan] epoch : 9, train loss d : 0.5654011847157228, tranin loss g : 1.0408669945440794, test loss d : 0.4654412746429443, test loss g : 1.0992074966430665
+2025-04-08 17:44:31,791 - [INFO] [train_gan] epoch : 19, train loss d : 0.6073387076980189, tranin loss g : 0.8088761160248205, test loss d : 0.6236324071884155, test loss g : 0.7938942849636078
+2025-04-08 17:44:32,718 - [INFO] [train_gan] epoch : 29, train loss d : 0.5661951781887757, tranin loss g : 0.8399644133291746, test loss d : 0.444097039103508, test loss g : 0.9879582643508911
+2025-04-08 17:44:33,637 - [INFO] [train_gan] epoch : 39, train loss d : 0.603772411220952, tranin loss g : 0.8130259106033727, test loss d : 0.5777762115001679, test loss g : 0.8520751059055328
+2025-04-08 17:44:34,552 - [INFO] [train_gan] epoch : 49, train loss d : 0.6172773477278257, tranin loss g : 0.9149888628407529, test loss d : 0.6834776282310486, test loss g : 0.7948213636875152
+2025-04-08 17:44:35,482 - [INFO] [train_gan] epoch : 59, train loss d : 0.721088718426855, tranin loss g : 0.7252279206326133, test loss d : 0.6689306855201721, test loss g : 0.7851404845714569
+2025-04-08 17:44:36,435 - [INFO] [train_gan] epoch : 69, train loss d : 0.6622186240397001, tranin loss g : 0.8059487123238412, test loss d : 0.640240204334259, test loss g : 0.7767188072204589
+2025-04-08 17:44:37,396 - [INFO] [train_gan] epoch : 79, train loss d : 0.6442444214695379, tranin loss g : 0.81068092114047, test loss d : 0.6866660416126251, test loss g : 0.6965878903865814
+2025-04-08 17:44:38,365 - [INFO] [train_gan] epoch : 89, train loss d : 0.5947314892944536, tranin loss g : 0.8719101391340557, test loss d : 0.5725409746170044, test loss g : 0.9059506177902221
+2025-04-08 17:44:39,368 - [INFO] [train_gan] epoch : 99, train loss d : 0.5878074639721921, tranin loss g : 0.8566212763911799, test loss d : 0.5715956389904022, test loss g : 0.8239168524742126
+2025-04-08 17:44:39,368 - [INFO] [train_gan] GAN training complete.

@@ -1,0 +1,6 @@
+2025-04-08 17:12:43,080 - [INFO] [dataloader] Window size: 5
+2025-04-08 17:12:43,081 - [INFO] [dataloader] Batch size: 64
+2025-04-08 17:12:44,382 - [INFO] [train_gan] Start training GAN ..
+2025-04-08 17:12:44,382 - [INFO] [train_gan] [epoch_num_gan]: 100
+2025-04-08 17:12:44,382 - [INFO] [train_gan] [lr-g]: 0.0002, [lr-d]: 0.0002
+2025-04-08 17:12:48,397 - [INFO] [train_gan] epoch : 0, train loss d : 0.24504453257510536, tranin loss g : 2.711179157620982, test loss d : 0.012202202435582876, test loss g : 4.856171083450318

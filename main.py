@@ -12,7 +12,8 @@ from models.cnn_gan import Generator, Discriminator, LabeledDiscriminator
 # from models.dnn_gan import Generator, Discriminator
 # from models.rnn_gan import Generator, Discriminator
 from scripts.gan import train_clf, train_gan
-from scripts.data_loader import get_dataloader
+from scripts.data_loader import get_dataloader, get_windows
+from scripts.eval_dist import calculate_metrics
 from sklearn.preprocessing import MinMaxScaler
 
 def parse_args():
@@ -82,9 +83,10 @@ def main():
     generator = Generator().to(device)
     discriminator = Discriminator().to(device)
     train_gan(generator, discriminator, train_loader, test_loader, device, args)
-
     
-
+    train_set, train_label_set = get_windows(train, train_label, window_size=args.window)
+    synthetic_set = generator.generate_random(train_set.shape[0], device, torch.Tensor(train_label_set)).detach().numpy()
+    metrics = calculate_metrics(train_set, synthetic_set)
 
 if __name__ == "__main__":
     main()

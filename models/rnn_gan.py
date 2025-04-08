@@ -5,7 +5,7 @@ from .backbone import GANModule
 
 class Generator(GANModule):
     def __init__(self,
-                 data_shape=[5, 74],
+                 data_shape=[5, 72],
                  label_embedding_shape=[5, 1],
                  n_labels=5,
                  latent_noise_size=74,
@@ -40,7 +40,7 @@ class Generator(GANModule):
 
 class Discriminator(GANModule):
     def __init__(self,
-                 data_shape=[5, 74],
+                 data_shape=[5, 72],
                  label_embedding_shape=[5, 1],
                  n_labels=5,
                  lstm_hidden_size=128,
