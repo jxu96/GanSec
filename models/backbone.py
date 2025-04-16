@@ -1,13 +1,12 @@
 import torch
 import torch.nn as nn
 
-
-class GANModule(nn.Module):
+class NNModule(nn.Module):
     def __init__(self,
-                 data_shape: tuple[int, int],
-                 label_embedding_shape: tuple[int, int],
-                 n_labels: int
+                 data_shape: tuple[int, int], # [n_rows, n_features]
+                 label_shape: tuple[int, int], # [n_rows, n_labels]
                  ):
+        assert data_shape[0] == label_shape[0]
         super().__init__()
 
         self.device = (
@@ -16,14 +15,11 @@ class GANModule(nn.Module):
             else "cpu"
         )
 
-        self.data_shape = data_shape  # [n_rows, n_features]
-        # [n_labels, n_neurons]
-        self.label_embedding_shape = label_embedding_shape
-        self.n_labels = n_labels
-        self.label_embedding = nn.Embedding(
-            self.label_embedding_shape[0], self.label_embedding_shape[1])
-
-        # self.latent_size = config.get('latent_size', 100) # neurons for noise
+        self.n_rows = data_shape[0]
+        self.n_features = data_shape[1]
+        self.n_labels = label_shape[1]
+        # self.label_embedding = nn.Embedding(
+        #     self.label_embedding_shape[0], self.label_embedding_shape[1])
 
     def forward():
         pass

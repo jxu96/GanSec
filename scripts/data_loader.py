@@ -18,14 +18,13 @@ def get_windows(df: pd.DataFrame, label, window_size: int):
         # labels.append([label[i+window_size-1]])
     return np.array(windows), np.array(labels)
 
-def get_dataloader(df: pd.DataFrame, label, window_size: int, device, batch_size: int, train_test_split=.0):
+def get_dataloader(x, y, device, batch_size: int, train_test_split=.0):
     logger = logging.getLogger('dataloader')
-    logger.info(f'Window size: {window_size}')
-    logger.info(f'Batch size: {batch_size}')
+    # logger.info(f'Window size: {window_size}')
+    # logger.info(f'Batch size: {batch_size}')
 
-    windows, labels = get_windows(df, label, window_size)
-    dataset = TensorDataset(torch.tensor(windows, dtype=torch.float32, device=device),
-                            torch.tensor(labels, dtype=torch.float32, device=device))
+    dataset = TensorDataset(torch.tensor(x, dtype=torch.float32, device=device),
+                            torch.tensor(y, dtype=torch.float32, device=device))
 
     if train_test_split > 0:
         _test_size = int(len(dataset) * train_test_split)

@@ -1,48 +1,7 @@
 import torch
 import torch.nn as nn
 import logging
-
-
-def train_clf(clf, train_loader, test_loader, args):
-    logger = logging.getLogger('train_clf')
-
-    criterion = nn.BCELoss()
-    optimizer = torch.optim.Adam(clf.parameters(), lr=args.lr_clf)
-
-    logger.info('Start training Classifier ..')
-    logger.info('[epoch_num]: {}'.format(args.epoch_num))
-    logger.info('[lr_clf]: {}'.format(args.lr_clf))
-
-    for epoch in range(args.epoch_num):
-        train_loss = .0
-        clf.train()
-
-        for batch_idx, (data, targets) in enumerate(train_loader):
-            outputs = clf(data)
-            loss = criterion(outputs, targets)
-
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
-            train_loss += loss.item()
-        train_loss /= len(train_loader)
-
-        if (epoch+1) % args.block_size == 0 or epoch == 0:
-            test_loss = .0
-            clf.eval()
-
-            with torch.no_grad():
-                for data, targets in test_loader:
-                    outputs = clf(data)
-                    loss = criterion(outputs, targets)
-
-                    test_loss += loss.item()
-            test_loss /= len(test_loader)
-            logger.info("epoch : {}, train loss : {}, test loss : {}".format(
-                epoch, train_loss, test_loss))
-    logger.info('Classifier training complete.')
-
+import numpy as np
 
 def train_gan(generator, discriminator, train_loader, test_loader, device, args):
     logger = logging.getLogger('train_gan')
@@ -51,7 +10,7 @@ def train_gan(generator, discriminator, train_loader, test_loader, device, args)
     optimizer_g = torch.optim.Adam(generator.parameters(), lr=args.lr_g)
     optimizer_d = torch.optim.Adam(discriminator.parameters(), lr=args.lr_d)
 
-    logger.info('Start training LabeledGAN ..')
+    logger.info('Start training GAN ..')
     logger.info('[epoch_num_gan]: {}'.format(args.epoch_num_gan))
     logger.info('[lr-g]: {}, [lr-d]: {}'.format(args.lr_g, args.lr_d))
 
@@ -134,7 +93,6 @@ def train_gan(generator, discriminator, train_loader, test_loader, device, args)
                 epoch, train_loss_d, train_loss_g, test_loss_d, test_loss_g))
     logger.info('GAN training complete.')
 
-
 def train_labeledgan(generator, discriminator, train_loader, test_loader, device, args):
     logger = logging.getLogger('train_gan')
 
@@ -143,7 +101,7 @@ def train_labeledgan(generator, discriminator, train_loader, test_loader, device
     optimizer_g = torch.optim.Adam(generator.parameters(), lr=args.lr_g)
     optimizer_d = torch.optim.Adam(discriminator.parameters(), lr=args.lr_d)
 
-    logger.info('Start training GAN ..')
+    logger.info('Start training LabeledGAN ..')
     logger.info('[epoch_num_gan]: {}'.format(args.epoch_num_gan))
     logger.info('[lr-g]: {}, [lr-d]: {}'.format(args.lr_g, args.lr_d))
 
@@ -186,6 +144,9 @@ def train_labeledgan(generator, discriminator, train_loader, test_loader, device
             loss_g.backward()
             optimizer_g.step()
 
+        train_loss_g /= len(train_loader)
+        train_loss_d /= len(train_loader)
+
         if (epoch+1) % args.block_size_gan == 0 or epoch == 0:
             test_loss_g = 0.0
             test_loss_d = 0.0
@@ -223,6 +184,53 @@ def train_labeledgan(generator, discriminator, train_loader, test_loader, device
                         criterion(pfake_class, label_test)
                     test_loss_g += lgtest.item()
 
+            test_loss_g /= len(test_loader)
+            test_loss_d /= len(test_loader)
+
             logger.info("epoch : {}, train loss d : {}, tranin loss g : {}, test loss d : {}, test loss g : {}".format(
                 epoch, train_loss_d, train_loss_g, test_loss_d, test_loss_g))
     logger.info('GAN training complete.')
+
+def gen_synthetic(generator, discriminator, amount, label, n_label, device, threshold_d=.5):
+    logger = logging.getLogger('generate_synthetic')
+    logger.info(f'Generating {amount} samples ({label}) ...')
+
+    remaining = amount
+    loop_count, safe_break = 0, 100
+    synthetic_data = []
+    while remaining > 0 or loop_count < safe_break:
+        y = torch.full((remaining, n_label), label, device=device)
+        out = generator.generate_random(remaining, device, y)
+        likelihood = discriminator(out, y)
+        is_realistic = torch.flatten(likelihood >= threshold_d)
+        synthetic_data.append(out[is_realistic].detach().numpy())
+        
+        remaining -= sum(is_realistic)
+        loop_count += 1
+    
+    if remaining > 0:
+        logger.warning(f'failed to generate enough realistic samples: [{amount-remaining}/{amount}]')
+
+    return np.concatenate(synthetic_data, axis=0), np.full((amount-remaining, n_label), label)
+
+def gen_synthetic_labeledgan(generator, discriminator, amount, label, n_label, device, threshold_d=.5):
+    logger = logging.getLogger('generate_synthetic')
+    logger.info(f'Generating {amount} samples ({label}) ...')
+
+    remaining = amount
+    loop_count, safe_break = 0, 100
+    synthetic_data = []
+    while remaining > 0 or loop_count < safe_break:
+        y = torch.full((remaining, n_label), label, device=device)
+        out = generator.generate_random(remaining, device, y)
+        likelihood, _ = discriminator(out)
+        is_realistic = torch.flatten(likelihood >= threshold_d)
+        synthetic_data.append(out[is_realistic].detach().numpy())
+        
+        remaining -= sum(is_realistic)
+        loop_count += 1
+    
+    if remaining > 0:
+        logger.warning(f'failed to generate enough realistic samples: [{amount-remaining}/{amount}]')
+
+    return np.concatenate(synthetic_data, axis=0), np.full((amount-remaining, n_label), label)
