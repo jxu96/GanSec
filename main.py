@@ -7,12 +7,12 @@ import logging
 import torch
 import pandas as pd
 import numpy as np
-# from models.cnn import Generator, Discriminator, LabeledDiscriminator, Classifier
-from models.dnn import Generator, Discriminator, LabeledDiscriminator, Classifier
+from models.cnn import Generator, Discriminator, LabeledDiscriminator, Classifier
+# from models.dnn import Generator, Discriminator, LabeledDiscriminator, Classifier
 # from models.rnn import Generator, Discriminator, LabeledDiscriminator, Classifier
 
 from scripts.clf import train_clf, evaluate_clf
-from scripts.gan import train_gan, train_labeledgan, gen_synthetic
+from scripts.gan import train_gan, train_labeledgan, gen_synthetic, gen_synthetic_labeledgan
 from scripts.data_loader import get_dataloader, get_windows
 from scripts.eval_dist import calculate_metrics
 from sklearn.preprocessing import MinMaxScaler
@@ -70,6 +70,10 @@ def main():
         else "mps" if torch.backends.mps.is_available()
         else "cpu"
     )
+    logging.info(f'using device: {device}')
+
+    outputs = {}
+
     scaler = MinMaxScaler()
     A, A_label = get_dataset('data/ue_jamming_detection/train.csv')
     B, B_label = get_dataset('data/ue_jamming_detection/valid.csv')
@@ -78,6 +82,9 @@ def main():
 
     A, A_label = get_windows(A, A_label, args.window)
     B, B_label = get_windows(B, B_label, args.window)
+
+    A_0 = A[np.apply_along_axis(np.mean, 1, A_label) == 0]
+    A_1 = A[np.apply_along_axis(np.mean, 1, A_label) == 1]
 
     A_train_loader, A_test_loader = get_dataloader(
         A, A_label, device=device, batch_size=args.batch_size, train_test_split=.2)
@@ -94,10 +101,13 @@ def main():
         ).to(device)
     
     train_clf(clf, A_train_loader, A_test_loader, args)
-    results = evaluate_clf(clf, B_loader, args)
-    logger.info(results)
+    outputs['pre-aug'] = evaluate_clf(clf, B_loader, args)
+    logger.info(outputs['pre-aug'])
 
-    ## Train GAN
+    ## Embedded Conditional GAN
+    logger = logging.getLogger('ec-gan')
+
+    ### Train GAN
     generator = Generator(
         data_shape=[A.shape[1], A.shape[2]],
         label_shape=[A_label.shape[1], 1],
@@ -110,21 +120,52 @@ def main():
     
     train_gan(generator, discriminator, A_train_loader, A_test_loader, device, args)
     
-    labeled_discriminator = LabeledDiscriminator(
+    ### Generate Synthetic
+    x_flag_0, y_flag_0 = gen_synthetic(generator, discriminator, 10000, 0, args.window, device)
+    x_flag_1, y_flag_1 = gen_synthetic(generator, discriminator, 10000, 1, args.window, device)
+    x_flag = np.concatenate([x_flag_0, x_flag_1], axis=0)
+    y_flag = np.concatenate([y_flag_0, y_flag_1], axis=0)
+    
+    outputs |= calculate_metrics(A_0, x_flag_0, 'ec-gan_0')
+    outputs |= calculate_metrics(A_1, x_flag_1, 'ec-gan_1')
+    synthetic_train_loader, synthetic_test_loader = get_dataloader(x_flag, y_flag, device=device, batch_size=args.batch_size, train_test_split=.1)
+
+    ### Post-augment
+    clf_augmented = Classifier(
+        data_shape=[A.shape[1], A.shape[2]],
+        label_shape=[A_label.shape[1], 1],
+    ).to(device)
+
+    train_clf(clf_augmented, synthetic_train_loader, synthetic_test_loader, args)
+    outputs['ec-gan_A'] = evaluate_clf(clf, A_loader, args)
+    logger.info('Perf on A set: {}'.format(outputs['ec-gan_A']))
+    outputs['ec-gan_B'] = evaluate_clf(clf, B_loader, args)
+    logger.info('Perf on B set: {}'.format(outputs['ec-gan_B']))
+
+    ## Classification Oriented GAN
+    logger = logging.getLogger('co-gan')
+
+    ### Train GAN
+    generator = Generator(
         data_shape=[A.shape[1], A.shape[2]],
         label_shape=[A_label.shape[1], 1],
         ).to(device)
 
-    train_labeledgan(generator, labeled_discriminator, A_train_loader, A_test_loader, device, args)
+    discriminator = LabeledDiscriminator(
+        data_shape=[A.shape[1], A.shape[2]],
+        label_shape=[A_label.shape[1], 1],
+        ).to(device)
 
-    ## Generate Synthetic (Mode 1)
-    logger = logging.getLogger('gan-1')
-    x_flag_0, y_flag_0 = gen_synthetic(generator, discriminator, 10000, 0, args.window, device)
-    x_flag_1, y_flag_1 = gen_synthetic(generator, discriminator, 10000, 1, args.window, device)
+    train_labeledgan(generator, discriminator, A_train_loader, A_test_loader, device, args)
+
+    ### Generate Synthetic
+    x_flag_0, y_flag_0 = gen_synthetic_labeledgan(generator, discriminator, 10000, 0, args.window, device)
+    x_flag_1, y_flag_1 = gen_synthetic_labeledgan(generator, discriminator, 10000, 1, args.window, device)
     x_flag = np.concatenate([x_flag_0, x_flag_1], axis=0)
     y_flag = np.concatenate([y_flag_0, y_flag_1], axis=0)
     
-    calculate_metrics(A, x_flag)
+    outputs |= calculate_metrics(A_0, x_flag_0, 'co-gan_0')
+    outputs |= calculate_metrics(A_1, x_flag_1, 'co-gan_1')
     synthetic_train_loader, synthetic_test_loader = get_dataloader(x_flag, y_flag, device=device, batch_size=args.batch_size, train_test_split=.1)
 
     ## Post-augment clf evaluate
@@ -134,36 +175,10 @@ def main():
     ).to(device)
 
     train_clf(clf_augmented, synthetic_train_loader, synthetic_test_loader, args)
-    results = evaluate_clf(clf, A_loader, args)
-    logger.info(f'Perf on A set: {results}')
-    results = evaluate_clf(clf, B_loader, args)
-    logger.info(f'Perf on B set: {results}')
-
-    ## Generate Synthetic (Mode 2)
-    logger = logging.getLogger('gan-2')
-    x_flag_0, y_flag_0 = gen_synthetic(generator, discriminator, 10000, 0, args.window, device)
-    x_flag_1, y_flag_1 = gen_synthetic(generator, discriminator, 10000, 1, args.window, device)
-    x_flag = np.concatenate([x_flag_0, x_flag_1], axis=0)
-    y_flag = np.concatenate([y_flag_0, y_flag_1], axis=0)
-    
-    calculate_metrics(A, x_flag)
-    synthetic_train_loader, synthetic_test_loader = get_dataloader(x_flag, y_flag, device=device, batch_size=args.batch_size, train_test_split=.1)
-
-    ## Post-augment clf evaluate
-    clf_augmented = Classifier(
-        data_shape=[A.shape[1], A.shape[2]],
-        label_shape=[A_label.shape[1], 1],
-    ).to(device)
-
-    train_clf(clf_augmented, synthetic_train_loader, synthetic_test_loader, args)
-    results = evaluate_clf(clf, A_loader, args)
-    logger.info(f'Perf on A set: {results}')
-    results = evaluate_clf(clf, B_loader, args)
-    logger.info(f'Perf on B set: {results}')
-
-    # train_set, train_label_set = get_windows(train, train_label, window_size=args.window)
-    # synthetic_set = generator.generate_random(train_set.shape[0], device, torch.Tensor(train_label_set)).detach().numpy()
-    # metrics = calculate_metrics(train_set, synthetic_set)
+    outputs['co-gan_A'] = evaluate_clf(clf, A_loader, args)
+    logger.info('Perf on A set: {}'.format(outputs['co-gan_A']))
+    outputs['co-gan_B'] = evaluate_clf(clf, B_loader, args)
+    logger.info('Perf on B set: {}'.format(outputs['co-gan_B']))
 
 if __name__ == "__main__":
     main()

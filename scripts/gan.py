@@ -191,7 +191,7 @@ def train_labeledgan(generator, discriminator, train_loader, test_loader, device
                 epoch, train_loss_d, train_loss_g, test_loss_d, test_loss_g))
     logger.info('GAN training complete.')
 
-def gen_synthetic(generator, discriminator, amount, label, n_label, device, threshold_d=.5):
+def gen_synthetic(generator, discriminator, amount, label, n_label, device, threshold_d=.3):
     logger = logging.getLogger('generate_synthetic')
     logger.info(f'Generating {amount} samples ({label}) ...')
 
@@ -203,17 +203,18 @@ def gen_synthetic(generator, discriminator, amount, label, n_label, device, thre
         out = generator.generate_random(remaining, device, y)
         likelihood = discriminator(out, y)
         is_realistic = torch.flatten(likelihood >= threshold_d)
-        synthetic_data.append(out[is_realistic].detach().numpy())
+        synthetic_data.append(out[is_realistic].detach().cpu().numpy())
         
         remaining -= sum(is_realistic)
         loop_count += 1
+        logger.debug(f'remaining {remaining} ..')
     
     if remaining > 0:
         logger.warning(f'failed to generate enough realistic samples: [{amount-remaining}/{amount}]')
 
     return np.concatenate(synthetic_data, axis=0), np.full((amount-remaining, n_label), label)
 
-def gen_synthetic_labeledgan(generator, discriminator, amount, label, n_label, device, threshold_d=.5):
+def gen_synthetic_labeledgan(generator, discriminator, amount, label, n_label, device, threshold_d=.3):
     logger = logging.getLogger('generate_synthetic')
     logger.info(f'Generating {amount} samples ({label}) ...')
 
@@ -225,10 +226,11 @@ def gen_synthetic_labeledgan(generator, discriminator, amount, label, n_label, d
         out = generator.generate_random(remaining, device, y)
         likelihood, _ = discriminator(out)
         is_realistic = torch.flatten(likelihood >= threshold_d)
-        synthetic_data.append(out[is_realistic].detach().numpy())
+        synthetic_data.append(out[is_realistic].detach().cpu().numpy())
         
         remaining -= sum(is_realistic)
         loop_count += 1
+        logger.debug(f'remaining {remaining} ..')
     
     if remaining > 0:
         logger.warning(f'failed to generate enough realistic samples: [{amount-remaining}/{amount}]')
