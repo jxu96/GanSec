@@ -7,8 +7,8 @@ import logging
 import torch
 import pandas as pd
 import numpy as np
-# from models.cnn import Generator, Discriminator, LabeledDiscriminator, Classifier
-from models.dnn import Generator, Discriminator, LabeledDiscriminator, Classifier
+from models.cnn import Generator, Discriminator, LabeledDiscriminator, Classifier
+# from models.dnn import Generator, Discriminator, LabeledDiscriminator, Classifier
 # from models.rnn import Generator, Discriminator, LabeledDiscriminator, Classifier
 
 from scripts.clf import train_clf, evaluate_clf

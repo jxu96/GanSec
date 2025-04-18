@@ -24,6 +24,8 @@ def train_gan(generator, discriminator, train_loader, test_loader, device, args)
     logger.info('[epoch_num_gan]: {}'.format(args.epoch_num_gan))
     logger.info('[lr-g]: {}, [lr-d]: {}'.format(args.lr_g, args.lr_d))
 
+    w_r, w_f = .4, .6
+
     for epoch in range(args.epoch_num_gan):
         train_loss_g = 0.0
         train_loss_d = 0.0
@@ -41,8 +43,7 @@ def train_gan(generator, discriminator, train_loader, test_loader, device, args)
             X_fake = generator.generate_random(cur_size, device, label)
             pred_fake = discriminator(X_fake, label)
             loss_fake = criterion(pred_fake, y_fake)
-            loss_label = 0.0
-            loss_d = (loss_real + loss_fake)/2 + loss_label
+            loss_d = w_r * loss_real + w_f * loss_fake
             train_loss_d += loss_d.item()
             optimizer_d.zero_grad()
             optimizer_g.zero_grad()
@@ -115,6 +116,8 @@ def train_labeledgan(generator, discriminator, train_loader, test_loader, device
     logger.info('[epoch_num_gan]: {}'.format(args.epoch_num_gan))
     logger.info('[lr-g]: {}, [lr-d]: {}'.format(args.lr_g, args.lr_d))
 
+    w_r, w_f = .4, .6
+
     for epoch in range(args.epoch_num_gan):
         train_loss_g = 0.0
         train_loss_d = 0.0
@@ -135,8 +138,7 @@ def train_labeledgan(generator, discriminator, train_loader, test_loader, device
             pred_fake, pred_fake_class = discriminator(X_fake)
             loss_fake = criterion(pred_fake, y_fake) + \
                 criterion(pred_fake_class, label)
-            loss_label = 0.0
-            loss_d = (loss_real + loss_fake)/2 + loss_label
+            loss_d = w_r * loss_real + w_f * loss_fake
             train_loss_d += loss_d.item()
             optimizer_d.zero_grad()
             optimizer_g.zero_grad()

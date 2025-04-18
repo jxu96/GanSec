@@ -51,7 +51,7 @@ class Discriminator(NNModule):
         super().__init__(data_shape, label_shape)
 
         self.label_embedding_size = label_embedding_size
-        self.output_size = self.n_rows * (self.n_features + self.n_labels)
+        self.output_size = self.n_rows * (self.n_features + self.label_embedding_size)
 
         self.embedding = nn.Embedding(self.n_rows, self.label_embedding_size)
         self.model = nn.Sequential(
