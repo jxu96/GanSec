@@ -2,6 +2,16 @@ import torch
 import torch.nn as nn
 import logging
 import numpy as np
+import os
+
+def save_gan(generator, discriminator, loc):
+    os.makedirs(loc, exist_ok=True)
+    torch.save(generator.state_dict(), f'{loc}/gen.pth')
+    torch.save(discriminator.state_dict(), f'{loc}/dis.pth')
+
+def load_gan(generator, discriminator, loc):
+    generator.load_state_dict(torch.load(f'{loc}/gen.pth', weights_only=True))
+    discriminator.load_state_dict(torch.load(f'{loc}/dis.pth', weights_only=True))
 
 def train_gan(generator, discriminator, train_loader, test_loader, device, args):
     logger = logging.getLogger('train_gan')
@@ -191,14 +201,14 @@ def train_labeledgan(generator, discriminator, train_loader, test_loader, device
                 epoch, train_loss_d, train_loss_g, test_loss_d, test_loss_g))
     logger.info('GAN training complete.')
 
-def gen_synthetic(generator, discriminator, amount, label, n_label, device, threshold_d=.3):
+def gen_synthetic(generator, discriminator, amount, label, n_label, device, threshold_d=.0):
     logger = logging.getLogger('generate_synthetic')
     logger.info(f'Generating {amount} samples ({label}) ...')
 
     remaining = amount
     loop_count, safe_break = 0, 100
     synthetic_data = []
-    while remaining > 0 or loop_count < safe_break:
+    while remaining > 0 and loop_count < safe_break:
         y = torch.full((remaining, n_label), label, device=device)
         out = generator.generate_random(remaining, device, y)
         likelihood = discriminator(out, y)
@@ -214,14 +224,14 @@ def gen_synthetic(generator, discriminator, amount, label, n_label, device, thre
 
     return np.concatenate(synthetic_data, axis=0), np.full((amount-remaining, n_label), label)
 
-def gen_synthetic_labeledgan(generator, discriminator, amount, label, n_label, device, threshold_d=.3):
+def gen_synthetic_labeledgan(generator, discriminator, amount, label, n_label, device, threshold_d=.0):
     logger = logging.getLogger('generate_synthetic')
     logger.info(f'Generating {amount} samples ({label}) ...')
 
     remaining = amount
     loop_count, safe_break = 0, 100
     synthetic_data = []
-    while remaining > 0 or loop_count < safe_break:
+    while remaining > 0 and loop_count < safe_break:
         y = torch.full((remaining, n_label), label, device=device)
         out = generator.generate_random(remaining, device, y)
         likelihood, _ = discriminator(out)

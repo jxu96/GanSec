@@ -12,7 +12,7 @@ from models.dnn import Generator, Discriminator, LabeledDiscriminator, Classifie
 # from models.rnn import Generator, Discriminator, LabeledDiscriminator, Classifier
 
 from scripts.clf import train_clf, evaluate_clf
-from scripts.gan import train_gan, train_labeledgan, gen_synthetic, gen_synthetic_labeledgan
+from scripts.gan import train_gan, train_labeledgan, gen_synthetic, gen_synthetic_labeledgan, save_gan
 from scripts.data_loader import get_dataloader, get_windows
 from scripts.eval_dist import calculate_metrics
 from sklearn.preprocessing import MinMaxScaler
@@ -35,15 +35,11 @@ def parse_args():
 
     return parser.parse_args()
 
-def configure_logging(debug=False):
+def configure_logging(output, debug=False):
     format = "%(asctime)s - [%(levelname)s] [%(name)s] %(message)s"
-    current_time = time.asctime()
-    logging_file = '{}/logs/{}.out'.format(
-        os.path.dirname(__file__), current_time.replace(' ', '_'))
-    os.makedirs(os.path.dirname(logging_file), exist_ok=True)
     handlers = [
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler(logging_file)
+        logging.FileHandler(output)
     ]
 
     logging.basicConfig(
@@ -63,7 +59,11 @@ def get_dataset(file_path):
 
 def main():
     args = parse_args()
-    configure_logging(debug=args.verbose)
+    current_time = time.asctime().replace(' ', '_')
+    os.makedirs(f'backups/{current_time}', exist_ok=True)
+
+    configure_logging(output=f'backups/{current_time}/logs.out', debug=args.verbose)
+    logging.info(args)
 
     device = (
         "cuda" if torch.cuda.is_available()
@@ -121,10 +121,11 @@ def main():
         ).to(device)
     
     train_gan(generator, discriminator, A_train_loader, A_test_loader, device, args)
+    save_gan(generator, discriminator, loc=f'backups/{current_time}/ec-gan')
     
     ### Generate Synthetic
-    x_flag_0, y_flag_0 = gen_synthetic(generator, discriminator, 10000, 0, args.window, device)
-    x_flag_1, y_flag_1 = gen_synthetic(generator, discriminator, 10000, 1, args.window, device)
+    x_flag_0, y_flag_0 = gen_synthetic(generator, discriminator, 5000, 0, args.window, device)
+    x_flag_1, y_flag_1 = gen_synthetic(generator, discriminator, 5000, 1, args.window, device)
     x_flag = np.concatenate([x_flag_0, x_flag_1], axis=0)
     y_flag = np.concatenate([y_flag_0, y_flag_1], axis=0)
     
@@ -160,10 +161,11 @@ def main():
         ).to(device)
 
     train_labeledgan(generator, discriminator, A_train_loader, A_test_loader, device, args)
+    save_gan(generator, discriminator, loc=f'backups/{current_time}/co-gan')
 
     ### Generate Synthetic
-    x_flag_0, y_flag_0 = gen_synthetic_labeledgan(generator, discriminator, 10000, 0, args.window, device)
-    x_flag_1, y_flag_1 = gen_synthetic_labeledgan(generator, discriminator, 10000, 1, args.window, device)
+    x_flag_0, y_flag_0 = gen_synthetic_labeledgan(generator, discriminator, 5000, 0, args.window, device)
+    x_flag_1, y_flag_1 = gen_synthetic_labeledgan(generator, discriminator, 5000, 1, args.window, device)
     x_flag = np.concatenate([x_flag_0, x_flag_1], axis=0)
     y_flag = np.concatenate([y_flag_0, y_flag_1], axis=0)
     

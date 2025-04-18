@@ -3,11 +3,11 @@
 python3 main.py \
 --window 5 \
 --epoch-num 32 \
---batch-size 64 \
+--batch-size 128 \
 --block-size 4 \
 --lr-clf 0.001 \
---epoch-num-gan 10000 \
---batch-size-gan 64 \
+--epoch-num-gan 1000 \
+--batch-size-gan 128 \
 --block-size-gan 100 \
 --lr-g 0.0015 \
 --lr-d 0.0008
