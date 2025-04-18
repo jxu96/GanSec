@@ -7,8 +7,8 @@ import logging
 import torch
 import pandas as pd
 import numpy as np
-from models.cnn import Generator, Discriminator, LabeledDiscriminator, Classifier
-# from models.dnn import Generator, Discriminator, LabeledDiscriminator, Classifier
+# from models.cnn import Generator, Discriminator, LabeledDiscriminator, Classifier
+from models.dnn import Generator, Discriminator, LabeledDiscriminator, Classifier
 # from models.rnn import Generator, Discriminator, LabeledDiscriminator, Classifier
 
 from scripts.clf import train_clf, evaluate_clf
@@ -111,11 +111,13 @@ def main():
     generator = Generator(
         data_shape=[A.shape[1], A.shape[2]],
         label_shape=[A_label.shape[1], 1],
+        label_embedding_size=8,
         ).to(device)
 
     discriminator = Discriminator(
         data_shape=[A.shape[1], A.shape[2]],
         label_shape=[A_label.shape[1], 1],
+        label_embedding_size=8,
         ).to(device)
     
     train_gan(generator, discriminator, A_train_loader, A_test_loader, device, args)
@@ -149,6 +151,7 @@ def main():
     generator = Generator(
         data_shape=[A.shape[1], A.shape[2]],
         label_shape=[A_label.shape[1], 1],
+        label_embedding_size=8,
         ).to(device)
 
     discriminator = LabeledDiscriminator(

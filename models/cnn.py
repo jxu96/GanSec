@@ -17,21 +17,25 @@ class Generator(NNModule):
         self.output_size = self.n_rows * self.n_features
 
         self.embedding = nn.Embedding(self.n_rows, self.label_embedding_size)
-        self.conv1 = nn.Conv2d(1, 32, kernel_size=3, padding=1)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
-        self.fc1 = nn.Linear(64*self.hidden_size, 128)
-        self.fc2 = nn.Linear(128, self.output_size)
+        self.model = nn.Sequential(
+            nn.Conv2d(1, 32, kernel_size=3, padding=1),
+            nn.LeakyReLU(.2, inplace=True),
+            nn.BatchNorm2d(32, .01),
+            nn.Conv2d(32, 64, kernel_size=3, padding=1),
+            nn.LeakyReLU(.2, inplace=True),
+            nn.BatchNorm2d(64, .01),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Flatten(),
+            nn.Linear(64*self.hidden_size, self.output_size),
+            nn.Tanh(),
+        ).to(self.device)
 
     def forward(self, noise, labels):
         # labels = labels.repeat(1, self.label_embedding_size).reshape(-1, self.n_rows, self.label_embedding_size)
         labels = self.embedding(labels.to(torch.int))
         # print("generator", noise.shape, labels.shape)
         x = torch.cat((noise, labels), dim=2).unsqueeze(dim=1)
-        x = torch.relu(self.conv1(x))
-        x = torch.relu(self.conv2(x))
-        x = torch.flatten(x, 1)
-        x = torch.relu(self.fc1(x))
-        x = self.fc2(x)
+        x = self.model(x)
         return torch.reshape(x, [-1, self.n_rows, self.n_features])
 
     def generate_random(self, amount, device, labels=None):
@@ -50,26 +54,28 @@ class Discriminator(NNModule):
         self.output_size = self.n_rows * (self.n_features + self.n_labels)
 
         self.embedding = nn.Embedding(self.n_rows, self.label_embedding_size)
-        self.conv1 = nn.Conv2d(1, 32, kernel_size=3, padding=1)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
-        self.conv3 = nn.Conv2d(64, 32, kernel_size=3, padding=1)
-        self.fc1 = nn.Linear(32*self.output_size, 128)
-        self.fc2 = nn.Linear(128, 1)
-        self.sigmod = nn.Sigmoid()
+        self.model = nn.Sequential(
+            nn.Conv2d(1, 16, kernel_size=3, padding=1),
+            nn.LeakyReLU(.2, inplace=True),
+            nn.BatchNorm2d(16, .01),
+            nn.Conv2d(16, 32, kernel_size=3, padding=1),
+            nn.LeakyReLU(.2, inplace=True),
+            nn.BatchNorm2d(32, .01),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Flatten(),
+            nn.Linear(32*self.output_size, 128),
+            nn.LeakyReLU(.2, inplace=True),
+            nn.Dropout(.4),
+            nn.Linear(128, 1),
+            nn.Sigmoid()
+        ).to(self.device)
 
     def forward(self, data, labels):
         # labels = labels.reshape(-1, self.n_rows, self.label_embedding_size)
         labels = self.embedding(labels.to(torch.int))
         x = torch.cat((data, labels), dim=2).unsqueeze(dim=1)
-        x = torch.relu(self.conv1(x))
-        x = torch.relu(self.conv2(x))
-        x = torch.relu(self.conv3(x))
-        x = torch.flatten(x, 1)
-        x = torch.relu(self.fc1(x))
-        x = self.fc2(x)
-        x = self.sigmod(x)
 
-        return x
+        return self.model(x)
 
 class LabeledDiscriminator(NNModule):
     def __init__(self,
@@ -79,27 +85,31 @@ class LabeledDiscriminator(NNModule):
 
         self.output_size = self.n_rows * self.n_features
 
-        self.conv1 = nn.Conv2d(1, 32, kernel_size=3, padding=1)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
-        self.conv3 = nn.Conv2d(64, 32, kernel_size=3, padding=1)
-        self.fc1 = nn.Linear(32*self.output_size, 128)
-        self.fc2 = nn.Linear(128, 1)
+        self.model = nn.Sequential(
+            nn.Conv2d(1, 16, kernel_size=3, padding=1),
+            nn.LeakyReLU(.2, inplace=True),
+            nn.BatchNorm2d(16, .01),
+            nn.Conv2d(16, 32, kernel_size=3, padding=1),
+            nn.LeakyReLU(.2, inplace=True),
+            nn.BatchNorm2d(32, .01),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Flatten(),
+            nn.Linear(32*self.output_size, 128),
+            nn.LeakyReLU(.2, inplace=True),
+            nn.Dropout(.4),
+        ).to(self.device)
+
+        self.fc_dis = nn.Linear(128, 1)
+        self.fc_clf = nn.Linear(128, self.n_rows*self.n_labels)
         self.sigmod = nn.Sigmoid()
-        self.fc3 = nn.Linear(128, self.n_rows*self.n_labels)
-        # self.softmax = nn.Softmax(dim=1)
 
     def forward(self, data):
         data = data.reshape(-1, 1, self.n_rows, self.n_features)
-        x = torch.relu(self.conv1(data))
-        x = torch.relu(self.conv2(x))
-        x = torch.relu(self.conv3(x))
-        x = torch.flatten(x, 1)
-        x = torch.relu(self.fc1(x))
-        y1 = self.fc2(x)
-        y1 = self.sigmod(y1)
-        y2 = self.fc3(x)
-        y2 = self.sigmod(y2)
-        return y1, y2
+        x = self.model(data)
+        pred_dis = self.sigmod(self.fc_dis(x))
+        pred_clf = self.sigmod(self.fc_clf(x))
+
+        return pred_dis, pred_clf
 
 class Classifier(NNModule):
     def __init__(self,
@@ -109,19 +119,20 @@ class Classifier(NNModule):
 
         self.output_size = self.n_rows * self.n_features
 
-        self.conv1 = nn.Conv2d(1, 32, kernel_size=3, padding=1)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
-        self.conv3 = nn.Conv2d(64, 32, kernel_size=3, padding=1)
-        self.fc = nn.Linear(32*self.output_size, self.n_rows*self.n_labels)
-        self.sigmod = nn.Sigmoid()
-        # self.softmax = nn.Softmax(dim=1)
+        self.model = nn.Sequential(
+            nn.Conv2d(1, 32, kernel_size=3, padding=1),
+            nn.LeakyReLU(.2, inplace=True),
+            nn.BatchNorm2d(32, .01),
+            nn.Conv2d(32, 64, kernel_size=3, padding=1),
+            nn.LeakyReLU(.2, inplace=True),
+            nn.BatchNorm2d(64, .01),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Flatten(),
+            nn.Linear(32*self.output_size, self.n_rows*self.n_labels),
+            nn.Sigmoid(),
+        )
 
     def forward(self, data):
         data = data.reshape(-1, 1, self.n_rows, self.n_features)
-        x = torch.relu(self.conv1(data))
-        x = torch.relu(self.conv2(x))
-        x = torch.relu(self.conv3(x))
-        x = torch.flatten(x, 1)
-        x = self.sigmod(self.fc(x))
         
-        return x
+        return self.model(data)

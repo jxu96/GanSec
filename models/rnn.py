@@ -9,7 +9,7 @@ class Generator(NNModule):
                  label_embedding_size=1,
                  latent_noise_size=74,
                  lstm_hidden_size=128,
-                 lstm_num_layers=1):
+                 lstm_num_layers=3):
         super().__init__(data_shape, label_shape)
 
         self.label_embedding_size = label_embedding_size
@@ -46,7 +46,7 @@ class Discriminator(NNModule):
                  label_shape,
                  label_embedding_size=1,
                  lstm_hidden_size=128,
-                 lstm_num_layers=1):
+                 lstm_num_layers=3):
         super().__init__(data_shape, label_shape)
         
         self.label_embedding_size = label_embedding_size
@@ -79,7 +79,7 @@ class LabeledDiscriminator(NNModule):
                  data_shape,
                  label_shape,
                  lstm_hidden_size=128,
-                 lstm_num_layers=1):
+                 lstm_num_layers=3):
         super().__init__(data_shape, label_shape)
 
         self.lstm_hidden_size = lstm_hidden_size
@@ -110,7 +110,7 @@ class Classifier(NNModule):
                  data_shape,
                  label_shape,
                  lstm_hidden_size=128,
-                 lstm_num_layers=1):
+                 lstm_num_layers=3):
         super().__init__(data_shape, label_shape)
         
         self.lstm_hidden_size = lstm_hidden_size
