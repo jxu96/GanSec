@@ -5,3 +5,5 @@ test*/
 bak/
 logs/
 backups/
+**/*.png
+**/cifar*
