@@ -115,8 +115,8 @@ def main():
     save_gan(generator, discriminator, loc=f'backups/{current_time}/ec-gan')
     
     ### Generate Synthetic
-    x_flag_0, y_flag_0 = gen_synthetic(generator, discriminator, 5000, 0, args.window, device)
-    x_flag_1, y_flag_1 = gen_synthetic(generator, discriminator, 5000, 1, args.window, device)
+    x_flag_0, y_flag_0 = gen_synthetic(generator, discriminator, 10000, 0, args.window, device)
+    x_flag_1, y_flag_1 = gen_synthetic(generator, discriminator, 10000, 1, args.window, device)
     x_flag = np.concatenate([x_flag_0, x_flag_1], axis=0)
     y_flag = np.concatenate([y_flag_0, y_flag_1], axis=0)
     
@@ -131,9 +131,9 @@ def main():
     ).to(device)
 
     train_clf(clf_augmented, synthetic_train_loader, synthetic_test_loader, args)
-    outputs['ec-gan_A'] = evaluate_clf(clf, A_loader, args)
+    outputs['ec-gan_A'] = evaluate_clf(clf_augmented, A_loader, args)
     logger.info('Perf on A set: {}'.format(outputs['ec-gan_A']))
-    outputs['ec-gan_B'] = evaluate_clf(clf, B_loader, args)
+    outputs['ec-gan_B'] = evaluate_clf(clf_augmented, B_loader, args)
     logger.info('Perf on B set: {}'.format(outputs['ec-gan_B']))
 
     ## Classification Oriented GAN
@@ -155,8 +155,8 @@ def main():
     save_gan(generator, discriminator, loc=f'backups/{current_time}/co-gan')
 
     ### Generate Synthetic
-    x_flag_0, y_flag_0 = gen_synthetic_labeledgan(generator, discriminator, 5000, 0, args.window, device)
-    x_flag_1, y_flag_1 = gen_synthetic_labeledgan(generator, discriminator, 5000, 1, args.window, device)
+    x_flag_0, y_flag_0 = gen_synthetic_labeledgan(generator, discriminator, 10000, 0, args.window, device)
+    x_flag_1, y_flag_1 = gen_synthetic_labeledgan(generator, discriminator, 10000, 1, args.window, device)
     x_flag = np.concatenate([x_flag_0, x_flag_1], axis=0)
     y_flag = np.concatenate([y_flag_0, y_flag_1], axis=0)
     
@@ -171,9 +171,9 @@ def main():
     ).to(device)
 
     train_clf(clf_augmented, synthetic_train_loader, synthetic_test_loader, args)
-    outputs['co-gan_A'] = evaluate_clf(clf, A_loader, args)
+    outputs['co-gan_A'] = evaluate_clf(clf_augmented, A_loader, args)
     logger.info('Perf on A set: {}'.format(outputs['co-gan_A']))
-    outputs['co-gan_B'] = evaluate_clf(clf, B_loader, args)
+    outputs['co-gan_B'] = evaluate_clf(clf_augmented, B_loader, args)
     logger.info('Perf on B set: {}'.format(outputs['co-gan_B']))
 
 if __name__ == "__main__":

@@ -25,7 +25,6 @@ def train_gan(generator, discriminator, train_loader, test_loader, device, args)
     logger.info('[lr-g]: {}, [lr-d]: {}'.format(args.lr_g, args.lr_d))
 
     w_r, w_f = .4, .6
-    # count_d, prune_d = 0, 5
 
     for epoch in range(args.epoch_num_gan):
         train_loss_g = 0.0
@@ -36,36 +35,30 @@ def train_gan(generator, discriminator, train_loader, test_loader, device, args)
             input, label = input.to(device), label.to(device)
             cur_size = input.shape[0]
             y_real = torch.ones((label.shape[0], 1)).to(device)
-            y_real_pruned = torch.full((label.shape[0], 1), .8).to(device)
             y_fake = torch.zeros((label.shape[0], 1)).to(device)
+
+            #
+            pred_real = discriminator(input, label)
+            loss_real = criterion(pred_real, y_real)
+            X_fake = generator.generate_random(cur_size, device, label)
+            pred_fake = discriminator(X_fake, label)
+            loss_fake = criterion(pred_fake, y_fake)
+            loss_d = w_r * loss_real + w_f * loss_fake
+            train_loss_d += loss_d.item()
+            optimizer_d.zero_grad()
+            optimizer_g.zero_grad()
+            loss_d.backward()
+            optimizer_d.step()
 
             #
             fake_sample = generator.generate_random(cur_size, device, label)
             pred_fake = discriminator(fake_sample, label)
             loss_g = criterion(pred_fake, y_real)
-            loss_g_value = loss_g.item()
-            train_loss_g += loss_g_value
-
+            train_loss_g += loss_g.item()
             optimizer_d.zero_grad()
             optimizer_g.zero_grad()
             loss_g.backward()
             optimizer_g.step()
-
-            #
-            pred_real = discriminator(input, label)
-            loss_real = criterion(pred_real, y_real_pruned)
-            X_fake = generator.generate_random(cur_size, device, label)
-            pred_fake = discriminator(X_fake, label)
-            loss_fake = criterion(pred_fake, y_fake)
-            loss_d = w_r * loss_real + w_f * loss_fake
-            loss_d_value = loss_d.item()
-            train_loss_d += loss_d_value
-
-            optimizer_d.zero_grad()
-            optimizer_g.zero_grad()
-            if (loss_g_value - loss_d_value) / loss_g_value < .2:
-                loss_d.backward()
-                optimizer_d.step()
         
         train_loss_g /= len(train_loader)
         train_loss_d /= len(train_loader)
@@ -134,40 +127,34 @@ def train_labeledgan(generator, discriminator, train_loader, test_loader, device
             input, label = input.to(device), label.to(device)
             cur_size = input.shape[0]
             y_real = torch.ones((label.shape[0], 1)).to(device)
-            y_real_pruned = torch.full((label.shape[0], 1), .8).to(device)
             y_fake = torch.zeros((label.shape[0], 1)).to(device)
+
+            #
+            pred_real, pred_real_class = discriminator(input)
+            # import pdb;pdb.set_trace()
+            loss_real = criterion(pred_real, y_real) + \
+                criterion(pred_real_class, label)
+            X_fake = generator.generate_random(cur_size, device, label)
+            pred_fake, pred_fake_class = discriminator(X_fake)
+            loss_fake = criterion(pred_fake, y_fake) + \
+                .0 * criterion(pred_fake_class, label)
+            loss_d = w_r * loss_real + w_f * loss_fake
+            train_loss_d += loss_d.item()
+            optimizer_d.zero_grad()
+            optimizer_g.zero_grad()
+            loss_d.backward()
+            optimizer_d.step()
 
             #
             fake_sample = generator.generate_random(cur_size, device, label)
             pred_fake, pred_fake_class = discriminator(fake_sample)
             loss_g = criterion(pred_fake, y_real) + \
                 criterion(pred_fake_class, label)
-            loss_g_value = loss_g.item()
-            train_loss_g += loss_g_value
-            
+            train_loss_g += loss_g.item()
             optimizer_d.zero_grad()
             optimizer_g.zero_grad()
             loss_g.backward()
             optimizer_g.step()
-
-            #
-            pred_real, pred_real_class = discriminator(input)
-            # import pdb;pdb.set_trace()
-            loss_real = criterion(pred_real, y_real_pruned) + \
-                criterion(pred_real_class, label)
-            X_fake = generator.generate_random(cur_size, device, label)
-            pred_fake, pred_fake_class = discriminator(X_fake)
-            loss_fake = criterion(pred_fake, y_fake) + \
-                criterion(pred_fake_class, label)
-            loss_d = w_r * loss_real + w_f * loss_fake
-            loss_d_value = loss_d.item()
-            train_loss_d += loss_d_value
-
-            optimizer_d.zero_grad()
-            optimizer_g.zero_grad()
-            if (loss_g_value - loss_d_value) / loss_g_value < .2:
-                loss_d.backward()
-                optimizer_d.step()
 
         train_loss_g /= len(train_loader)
         train_loss_d /= len(train_loader)
