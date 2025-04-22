@@ -7,13 +7,13 @@ import logging
 import torch
 import pandas as pd
 import numpy as np
-from models.cnn import Generator, Discriminator, LabeledDiscriminator, Classifier
-# from models.dnn import Generator, Discriminator, LabeledDiscriminator, Classifier
+# from models.cnn import Generator, Discriminator, LabeledDiscriminator, Classifier
+from models.dnn import Generator, Discriminator, LabeledDiscriminator, Classifier
 # from models.rnn import Generator, Discriminator, LabeledDiscriminator, Classifier
 
 from scripts.clf import train_clf, evaluate_clf
 from scripts.gan import train_gan, train_labeledgan, gen_synthetic, gen_synthetic_labeledgan, save_gan
-from scripts.data_loader import get_dataloader, get_windows
+from scripts.data_loader import get_dataloader, get_windows, get_dataset
 from scripts.eval_dist import calculate_metrics
 from sklearn.preprocessing import MinMaxScaler
 
@@ -47,15 +47,6 @@ def configure_logging(output, debug=False):
         format=format,
         handlers=handlers
     )
-
-def get_dataset(file_path):
-    df = pd.read_csv(file_path)
-    df['Timestamp'] = pd.to_datetime(df['Timestamp'])
-    df.set_index('Timestamp', inplace=True)
-    label = df['Label'].values
-    df.drop(columns='Label', inplace=True)
-
-    return df, label
 
 def main():
     args = parse_args()

@@ -4,6 +4,15 @@ import pandas as pd
 import torch
 from torch.utils.data import DataLoader, TensorDataset, random_split
 
+def get_dataset(file_path):
+    df = pd.read_csv(file_path)
+    df['Timestamp'] = pd.to_datetime(df['Timestamp'])
+    df.set_index('Timestamp', inplace=True)
+    label = df['Label'].values
+    df.drop(columns='Label', inplace=True)
+
+    return df, label
+
 def get_windows(df: pd.DataFrame, label, window_size: int):
     logger = logging.getLogger('dataloader')
     windows, labels = [], []
