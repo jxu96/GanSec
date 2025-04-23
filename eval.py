@@ -9,8 +9,8 @@ from sklearn.preprocessing import MinMaxScaler
 from scripts.data_loader import get_dataloader, get_dataset, get_windows
 from scripts.clf import train_clf, evaluate_clf
 from scripts.gan import load_gan, gen_synthetic, gen_synthetic_labeledgan
-from scripts.eval_dist import calculate_metrics
-from models.dnn import Classifier
+# from scripts.eval_dist import calculate_metrics
+# from models.dnn import Classifier
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -46,11 +46,11 @@ def main():
     current_time = args.tag
 
     if args.model == 'dnn':
-        from models.dnn import Generator, Discriminator, LabeledDiscriminator
+        from models.dnn import Generator, Discriminator, LabeledDiscriminator, Classifier
     elif args.model == 'cnn':
-        from models.cnn import Generator, Discriminator, LabeledDiscriminator
+        from models.cnn import Generator, Discriminator, LabeledDiscriminator, Classifier
     elif args.model == 'rnn':
-        from models.rnn import Generator, Discriminator, LabeledDiscriminator
+        from models.rnn import Generator, Discriminator, LabeledDiscriminator, Classifier
     
     device = (
         "cuda" if torch.cuda.is_available()
@@ -193,8 +193,8 @@ def main():
 
         train_clf(clf_augmented, A_flag_train_loader, A_flag_test_loader, args)
 
-        key_A = f'ec-gan_A_{ratio_pc}'
-        key_B = f'ec-gan_B_{ratio_pc}'
+        key_A = f'co-gan_A_{ratio_pc}'
+        key_B = f'co-gan_B_{ratio_pc}'
 
         results_A = evaluate_clf(clf_augmented, A_loader, args)
         results_B = evaluate_clf(clf_augmented, B_loader, args)
