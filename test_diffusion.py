@@ -9,10 +9,11 @@ import math
 import pandas as pd
 import argparse
 from scripts.clf import train_clf, evaluate_clf
-from scripts.gan import train_gan, train_labeledgan, gen_synthetic, gen_synthetic_labeledgan, save_gan
 from scripts.data_loader import get_dataloader, get_windows, get_dataset
+from models.dnn import Classifier
 from sklearn.preprocessing import MinMaxScaler
 import numpy as np
+from scipy.io import savemat
 
 class SinusoidalPosEmb(nn.Module):
     def __init__(self, dim):
@@ -172,6 +173,13 @@ def p_sample_loop(model, shape, device):
             x = mean
     return x
 
+def generate_synthetic(model, amount, label):
+    samples = p_sample_loop(model, (amount, 1, 5, 72), device)
+    samples = (samples.clamp(-1, 1) + 1) / 2
+    samples = samples.detach().cpu().numpy().reshape(-1, 5, 72)
+    labels = np.full((amount, 5, 1), label)
+    return samples, labels
+
 def main(args):
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -221,12 +229,43 @@ def main(args):
         os.makedirs('backups/diffusion', exist_ok=True)
         torch.save(model.state_dict(), 'backups/diffusion/model.pth')
 
-    # sample
-    samples = p_sample_loop(model, (1, 1, 5, 72), device)
-    samples = (samples.clamp(-1, 1) + 1) / 2
-    # save_image(samples, "cifar10_diffusion_samples.png", nrow=4)
-    # print("Saved samples → cifar10_diffusion_samples.png")
+    augment_ratios = [.1, .2, .3, .5, .7, 1., 1.5, 2., 3., 5.]
 
+    outputs = {}
+
+    for ratio in augment_ratios:
+        ratio_pc = int(ratio*100)
+        print('Augmenting with {}% ..'.format(ratio_pc))
+        amount = int(A.shape[0] * ratio // 2)
+
+        x_flag_0, y_flag_0 = generate_synthetic(model, amount, 0)
+        x_flag_1, y_flag_1 = generate_synthetic(model, amount, 1)
+
+        A_flag = np.concatenate([A, x_flag_0, x_flag_1], axis=0)
+        A_label_flag = np.concatenate([A_label, y_flag_0, y_flag_1], axis=0)
+
+        A_flag_train_loader, A_flag_test_loader = get_dataloader(A_flag, A_label_flag, device=device, batch_size=args.batch_size, train_test_split=.1)
+
+        clf_augmented = Classifier(
+            data_shape=[A.shape[1], A.shape[2]],
+            label_shape=[5, 1],
+        ).to(device)
+
+        train_clf(clf_augmented, A_flag_train_loader, A_flag_test_loader, args)
+
+        key_A = f'tanogan_A_{ratio_pc}'
+        key_B = f'tanogan_B_{ratio_pc}'
+
+        results_A = evaluate_clf(clf_augmented, A_loader, args)
+        results_B = evaluate_clf(clf_augmented, B_loader, args)
+
+        outputs[key_A] = results_A
+        outputs[key_B] = results_B
+
+        print('({}) Perf on A set: {}'.format(ratio_pc, results_A))
+        print('({}) Perf on B set: {}'.format(ratio_pc, results_B))
+    
+    savemat('backups/diffusion/eval.mat', outputs)
 
 if __name__ == "__main__":
     class ArgsMain:
