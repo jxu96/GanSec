@@ -11,13 +11,11 @@ from scripts.clf import train_clf, evaluate_clf
 from scripts.gan import load_gan, gen_synthetic, gen_synthetic_labeledgan
 from scripts.eval_dist import calculate_metrics
 from models.dnn import Classifier
-from models.dnn import Generator, Discriminator, LabeledDiscriminator
-# from models.cnn import Generator, Discriminator, LabeledDiscriminator
-# from models.rnn import Generator, Discriminator, LabeledDiscriminator
 
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('-t', '--tag', type=str)
+    parser.add_argument('-m', '--model', type=str)
     parser.add_argument('-v', '--verbose', action='store_true')
     parser.add_argument('-w', '--window', type=int, default=5)
 
@@ -46,6 +44,13 @@ def main():
     args = parse_args()
     configure_logging(args.tag)
     current_time = args.tag
+
+    if args.model == 'dnn':
+        from models.dnn import Generator, Discriminator, LabeledDiscriminator
+    elif args.model == 'cnn':
+        from models.cnn import Generator, Discriminator, LabeledDiscriminator
+    elif args.model == 'rnn':
+        from models.rnn import Generator, Discriminator, LabeledDiscriminator
     
     device = (
         "cuda" if torch.cuda.is_available()
@@ -90,9 +95,6 @@ def main():
     train_clf(clf, A_train_loader, A_test_loader, args)
     results_A = evaluate_clf(clf, A_loader, args)
     results_B = evaluate_clf(clf, B_loader, args)
-
-    print(outputs['pre-aug-B'])
-    print(results_B)
 
     if 'pre-aug-B' not in outputs.keys() or outputs['pre-aug-B'][ref_index] > results_B[ref_index]:
         outputs['pre-aug-A'] = results_A
