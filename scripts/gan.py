@@ -10,8 +10,8 @@ def save_gan(generator, discriminator, loc):
     torch.save(discriminator.state_dict(), f'{loc}/dis.pth')
 
 def load_gan(generator, discriminator, loc):
-    generator.load_state_dict(torch.load(f'{loc}/gen.pth', weights_only=True))
-    discriminator.load_state_dict(torch.load(f'{loc}/dis.pth', weights_only=True))
+    generator.load_state_dict(torch.load(f'{loc}/gen.pth', weights_only=True, map_location=torch.device('cpu')))
+    discriminator.load_state_dict(torch.load(f'{loc}/dis.pth', weights_only=True, map_location=torch.device('cpu')))
 
 def train_gan(generator, discriminator, train_loader, test_loader, device, args):
     logger = logging.getLogger('train_gan')
@@ -24,7 +24,8 @@ def train_gan(generator, discriminator, train_loader, test_loader, device, args)
     logger.info('[epoch_num_gan]: {}'.format(args.epoch_num_gan))
     logger.info('[lr-g]: {}, [lr-d]: {}'.format(args.lr_g, args.lr_d))
 
-    prune_d = args.epoch_num_gan // 2
+    # prune_d = args.epoch_num_gan // 2
+    prune_d = -1
 
     for epoch in range(args.epoch_num_gan):
         train_loss_g = 0.0
@@ -118,7 +119,8 @@ def train_labeledgan(generator, discriminator, train_loader, test_loader, device
     logger.info('[epoch_num_gan]: {}'.format(args.epoch_num_gan))
     logger.info('[lr-g]: {}, [lr-d]: {}'.format(args.lr_g, args.lr_d))
 
-    prune_d = args.epoch_num_gan // 2
+    # prune_d = args.epoch_num_gan // 2
+    prune_d = -1
 
     for epoch in range(args.epoch_num_gan):
         train_loss_g = 0.0
@@ -215,6 +217,8 @@ def gen_synthetic(generator, discriminator, amount, label, n_label, device, thre
     remaining = amount
     loop_count, safe_break = 0, 100
     synthetic_data = []
+    all_likelihoods = []
+
     while remaining > 0 and loop_count < safe_break:
         y = torch.full((remaining, n_label), label, device=device)
         out = generator.generate_random(remaining, device, y)
@@ -222,12 +226,17 @@ def gen_synthetic(generator, discriminator, amount, label, n_label, device, thre
         is_realistic = torch.flatten(likelihood >= threshold_d)
         synthetic_data.append(out[is_realistic].detach().cpu().numpy())
         
+        all_likelihoods.append(likelihood.detach().cpu().numpy())
         remaining -= sum(is_realistic)
         loop_count += 1
         logger.debug(f'remaining {remaining} ..')
     
     if remaining > 0:
         logger.warning(f'failed to generate enough realistic samples: [{amount-remaining}/{amount}]')
+    
+    if all_likelihoods:
+        avg_likelihood = np.concatenate(all_likelihoods).mean()
+        logger.info(f'Average likelihood of generated samples: {avg_likelihood:.4f}')
 
     return np.concatenate(synthetic_data, axis=0), np.full((amount-remaining, n_label), label)
 
@@ -238,6 +247,8 @@ def gen_synthetic_labeledgan(generator, discriminator, amount, label, n_label, d
     remaining = amount
     loop_count, safe_break = 0, 100
     synthetic_data = []
+    all_likelihoods = []
+
     while remaining > 0 and loop_count < safe_break:
         y = torch.full((remaining, n_label), label, device=device)
         out = generator.generate_random(remaining, device, y)
@@ -245,11 +256,16 @@ def gen_synthetic_labeledgan(generator, discriminator, amount, label, n_label, d
         is_realistic = torch.flatten(likelihood >= threshold_d)
         synthetic_data.append(out[is_realistic].detach().cpu().numpy())
         
+        all_likelihoods.append(likelihood.detach().cpu().numpy())
         remaining -= sum(is_realistic)
         loop_count += 1
         logger.debug(f'remaining {remaining} ..')
     
     if remaining > 0:
         logger.warning(f'failed to generate enough realistic samples: [{amount-remaining}/{amount}]')
+
+    if all_likelihoods:
+        avg_likelihood = np.concatenate(all_likelihoods).mean()
+        logger.info(f'Average likelihood of generated samples: {avg_likelihood:.4f}')
 
     return np.concatenate(synthetic_data, axis=0), np.full((amount-remaining, n_label), label)
