@@ -13,21 +13,25 @@ def load_gan(generator, discriminator, loc):
     generator.load_state_dict(torch.load(f'{loc}/gen.pth', weights_only=True, map_location=torch.device('cpu')))
     discriminator.load_state_dict(torch.load(f'{loc}/dis.pth', weights_only=True, map_location=torch.device('cpu')))
 
-def train_gan(generator, discriminator, train_loader, test_loader, device, args):
+def train_ec_gan(generator, discriminator, train_loader, test_loader, device, args):
     logger = logging.getLogger('train_gan')
 
+    if args.ec_epoch_num <= 0:
+        return
+
     criterion = nn.BCELoss()
-    optimizer_g = torch.optim.Adam(generator.parameters(), lr=args.lr_g)
-    optimizer_d = torch.optim.Adam(discriminator.parameters(), lr=args.lr_d)
+    optimizer_g = torch.optim.Adam(generator.parameters(), lr=args.ec_lr_g)
+    optimizer_d = torch.optim.Adam(discriminator.parameters(), lr=args.ec_lr_d)
 
-    logger.info('Start training GAN ..')
-    logger.info('[epoch_num_gan]: {}'.format(args.epoch_num_gan))
-    logger.info('[lr-g]: {}, [lr-d]: {}'.format(args.lr_g, args.lr_d))
+    logger.info('Start training EC-GAN ..')
+    logger.info('[epoch_num]: {}'.format(args.ec_epoch_num))
+    logger.info('[lr-g]: {}, [lr-d]: {}'.format(args.ec_lr_g, args.ec_lr_d))
 
+    block_size = args.ec_block_size if args.ec_block_size > 0 else (args.ec_epoch_num // 10)
     # prune_d = args.epoch_num_gan // 2
     prune_d = -1
 
-    for epoch in range(args.epoch_num_gan):
+    for epoch in range(args.ec_epoch_num):
         train_loss_g = 0.0
         train_loss_d = 0.0
         generator.train()
@@ -66,7 +70,7 @@ def train_gan(generator, discriminator, train_loader, test_loader, device, args)
         train_loss_g /= len(train_loader)
         train_loss_d /= len(train_loader)
 
-        if (epoch+1) % args.block_size_gan == 0 or epoch == 0:
+        if (epoch+1) % block_size == 0 or epoch == 0:
             test_loss_g = 0.0
             test_loss_d = 0.0
             generator.eval()
@@ -103,26 +107,30 @@ def train_gan(generator, discriminator, train_loader, test_loader, device, args)
             test_loss_g /= len(test_loader)
             test_loss_d /= len(test_loader)
             
-            logger.info("epoch : {}, train loss d : {}, tranin loss g : {}, test loss d : {}, test loss g : {}".format(
+            logger.info("epoch : {}, train loss d : {}, train loss g : {}, test loss d : {}, test loss g : {}".format(
                 epoch, train_loss_d, train_loss_g, test_loss_d, test_loss_g))
     logger.info('GAN training complete.')
 
-def train_labeledgan(generator, discriminator, train_loader, test_loader, device, args):
+def train_co_gan(generator, discriminator, train_loader, test_loader, device, args):
     logger = logging.getLogger('train_gan')
+
+    if args.co_epoch_num <= 0:
+        return
 
     criterion = nn.BCELoss()
     # criterion1 = nn.CrossEntropyLoss()
-    optimizer_g = torch.optim.Adam(generator.parameters(), lr=args.lr_g)
-    optimizer_d = torch.optim.Adam(discriminator.parameters(), lr=args.lr_d)
+    optimizer_g = torch.optim.Adam(generator.parameters(), lr=args.co_lr_g)
+    optimizer_d = torch.optim.Adam(discriminator.parameters(), lr=args.co_lr_d)
 
-    logger.info('Start training LabeledGAN ..')
-    logger.info('[epoch_num_gan]: {}'.format(args.epoch_num_gan))
-    logger.info('[lr-g]: {}, [lr-d]: {}'.format(args.lr_g, args.lr_d))
+    logger.info('Start training CO-GAN ..')
+    logger.info('[epoch_num]: {}'.format(args.co_epoch_num))
+    logger.info('[lr-g]: {}, [lr-d]: {}'.format(args.co_lr_g, args.co_lr_d))
 
+    block_size = args.co_block_size if args.co_block_size > 0 else (args.co_epoch_num // 10)
     # prune_d = args.epoch_num_gan // 2
     prune_d = -1
 
-    for epoch in range(args.epoch_num_gan):
+    for epoch in range(args.co_epoch_num):
         train_loss_g = 0.0
         train_loss_d = 0.0
         generator.train()
@@ -166,7 +174,7 @@ def train_labeledgan(generator, discriminator, train_loader, test_loader, device
         train_loss_g /= len(train_loader)
         train_loss_d /= len(train_loader)
 
-        if (epoch+1) % args.block_size_gan == 0 or epoch == 0:
+        if (epoch+1) % block_size == 0 or epoch == 0:
             test_loss_g = 0.0
             test_loss_d = 0.0
             generator.eval()
@@ -206,11 +214,11 @@ def train_labeledgan(generator, discriminator, train_loader, test_loader, device
             test_loss_g /= len(test_loader)
             test_loss_d /= len(test_loader)
 
-            logger.info("epoch : {}, train loss d : {}, tranin loss g : {}, test loss d : {}, test loss g : {}".format(
+            logger.info("epoch : {}, train loss d : {}, train loss g : {}, test loss d : {}, test loss g : {}".format(
                 epoch, train_loss_d, train_loss_g, test_loss_d, test_loss_g))
     logger.info('GAN training complete.')
 
-def gen_synthetic(generator, discriminator, amount, label, n_label, device, threshold_d=.0):
+def ec_gan_gen(generator, discriminator, amount, label, n_label, device, threshold_d=.0):
     logger = logging.getLogger('generate_synthetic')
     logger.info(f'Generating {amount} samples ({label}) ...')
 
@@ -240,7 +248,7 @@ def gen_synthetic(generator, discriminator, amount, label, n_label, device, thre
 
     return np.concatenate(synthetic_data, axis=0), np.full((amount-remaining, n_label), label)
 
-def gen_synthetic_labeledgan(generator, discriminator, amount, label, n_label, device, threshold_d=.0):
+def co_gan_gen(generator, discriminator, amount, label, n_label, device, threshold_d=.0):
     logger = logging.getLogger('generate_synthetic')
     logger.info(f'Generating {amount} samples ({label}) ...')
 

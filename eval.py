@@ -8,9 +8,8 @@ import sys
 from sklearn.preprocessing import MinMaxScaler
 from scripts.data_loader import get_dataloader, get_dataset, get_windows
 from scripts.clf import train_clf, evaluate_clf
-from scripts.gan import load_gan, gen_synthetic, gen_synthetic_labeledgan
-# from scripts.eval_dist import calculate_metrics
-# from models.dnn import Classifier
+from scripts.gan import load_gan, ec_gan_gen, co_gan_gen
+from models.dnn import Classifier
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -19,10 +18,12 @@ def parse_args():
     parser.add_argument('-v', '--verbose', action='store_true')
     parser.add_argument('-w', '--window', type=int, default=5)
 
+    # Classifier
     parser.add_argument('--epoch-num', type=int, default=100)
     parser.add_argument('--batch-size', type=int, default=64)
-    parser.add_argument('--block-size', type=int, default=10)
-    parser.add_argument('--lr-clf', type=float, default=0.001)
+    parser.add_argument('--block-size', type=int, default=-1)
+    parser.add_argument('--lr', type=float, default=0.001)
+    # Discriminator Threshold
     parser.add_argument('--threshold-d', type=float, default=.0)
 
     return parser.parse_args()
@@ -31,7 +32,7 @@ def configure_logging(output, debug=False):
     format = "%(asctime)s - [%(levelname)s] [%(name)s] %(message)s"
     handlers = [
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler('backups/{}/eval.out'.format(output))
+        logging.FileHandler(output)
     ]
 
     logging.basicConfig(
@@ -42,26 +43,29 @@ def configure_logging(output, debug=False):
 
 def main():
     args = parse_args()
-    configure_logging(args.tag)
     current_time = args.tag
+    folder = f'backups/{current_time}_{args.model.upper()}'
+
+    configure_logging(output=f'{folder}/eval.out', debug=args.verbose)
+    logging.info(args)
 
     if args.model == 'dnn':
-        from models.dnn import Generator, Discriminator, LabeledDiscriminator, Classifier
+        from models.dnn import Generator, Discriminator, LabeledDiscriminator
     elif args.model == 'cnn':
-        from models.cnn import Generator, Discriminator, LabeledDiscriminator, Classifier
+        from models.cnn import Generator, Discriminator, LabeledDiscriminator
     elif args.model == 'rnn':
-        from models.rnn import Generator, Discriminator, LabeledDiscriminator, Classifier
+        from models.rnn import Generator, Discriminator, LabeledDiscriminator
     
     device = (
         "cuda" if torch.cuda.is_available()
         else "mps" if torch.backends.mps.is_available()
         else "cpu"
     )
-    ref_index = 3 # f1
+    ref_index = 0 # accuracy
     augment_ratios = [.1, .2, .3, .5, .7, 1., 1.5, 2., 3., 5.]
 
-    if os.path.exists(f'backups/{current_time}/eval.mat'):
-        outputs = loadmat(f'backups/{current_time}/eval.mat', squeeze_me=True)
+    if os.path.exists(f'{folder}/eval.mat'):
+        outputs = loadmat(f'{folder}/eval.mat', squeeze_me=True)
     else:
         outputs = {}
 
@@ -75,8 +79,8 @@ def main():
     A, A_label = get_windows(A, A_label, args.window)
     B, B_label = get_windows(B, B_label, args.window)
 
-    A_0 = A[np.apply_along_axis(np.mean, 1, A_label) == 0]
-    A_1 = A[np.apply_along_axis(np.mean, 1, A_label) == 1]
+    # A_0 = A[np.apply_along_axis(np.mean, 1, A_label) == 0]
+    # A_1 = A[np.apply_along_axis(np.mean, 1, A_label) == 1]
 
     A_train_loader, A_test_loader = get_dataloader(
         A, A_label, device=device, batch_size=args.batch_size, train_test_split=.2)
@@ -119,19 +123,22 @@ def main():
         label_embedding_size=8,
         ).to(device)
     
-    load_gan(generator, discriminator, loc=f'backups/{current_time}/ec-gan')
+    load_gan(generator, discriminator, loc=f'{folder}/ec-gan')
 
     ### Generate Synthetic
     for ratio in augment_ratios:
         ratio_pc = int(ratio*100)
         logger.info('Augmenting with {}% ..'.format(ratio_pc))
         amount = int(A.shape[0] * ratio // 2)
+        # amount = int(A.shape[0] * (1+ratio) // 2)
 
-        x_flag_0, y_flag_0 = gen_synthetic(generator, discriminator, amount, 0, args.window, device, threshold_d=args.threshold_d)
-        x_flag_1, y_flag_1 = gen_synthetic(generator, discriminator, amount, 1, args.window, device, threshold_d=args.threshold_d)
+        x_flag_0, y_flag_0 = ec_gan_gen(generator, discriminator, amount, 0, args.window, device, threshold_d=args.threshold_d)
+        x_flag_1, y_flag_1 = ec_gan_gen(generator, discriminator, amount, 1, args.window, device, threshold_d=args.threshold_d)
     
         A_flag = np.concatenate([A, x_flag_0, x_flag_1], axis=0)
         A_label_flag = np.concatenate([A_label, y_flag_0, y_flag_1], axis=0)
+        # A_flag = np.concatenate([x_flag_0, x_flag_1], axis=0)
+        # A_label_flag = np.concatenate([y_flag_0, y_flag_1], axis=0)
 
         A_flag_train_loader, A_flag_test_loader = get_dataloader(A_flag, A_label_flag, device=device, batch_size=args.batch_size, train_test_split=.1)
 
@@ -170,7 +177,7 @@ def main():
         label_shape=[A_label.shape[1], 1],
         ).to(device)
 
-    load_gan(generator, discriminator, loc=f'backups/{current_time}/co-gan')
+    load_gan(generator, discriminator, loc=f'{folder}/co-gan')
 
     ### Generate Synthetic
     for ratio in augment_ratios:
@@ -178,8 +185,8 @@ def main():
         logger.info('Augmenting with {}% ..'.format(ratio_pc))
         amount = int(A.shape[0] * ratio // 2)
 
-        x_flag_0, y_flag_0 = gen_synthetic_labeledgan(generator, discriminator, amount, 0, args.window, device, threshold_d=args.threshold_d)
-        x_flag_1, y_flag_1 = gen_synthetic_labeledgan(generator, discriminator, amount, 1, args.window, device, threshold_d=args.threshold_d)
+        x_flag_0, y_flag_0 = co_gan_gen(generator, discriminator, amount, 0, args.window, device, threshold_d=args.threshold_d)
+        x_flag_1, y_flag_1 = co_gan_gen(generator, discriminator, amount, 1, args.window, device, threshold_d=args.threshold_d)
     
         A_flag = np.concatenate([A, x_flag_0, x_flag_1], axis=0)
         A_label_flag = np.concatenate([A_label, y_flag_0, y_flag_1], axis=0)
@@ -206,7 +213,7 @@ def main():
         logger.info('({}) Perf on A set: {}'.format(ratio_pc, outputs[key_A]))
         logger.info('({}) Perf on B set: {}'.format(ratio_pc, outputs[key_B]))
     
-    savemat(f'backups/{current_time}/eval.mat', outputs)
+    savemat(f'{folder}/eval.mat', outputs)
 
 if __name__ == "__main__":
     main()

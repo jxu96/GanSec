@@ -1,10 +1,10 @@
 #!/usr/bin/sh
 
 python3 eval.py \
---tag "Wed_Apr_23_09:40:10_2025_RNN" \
+--tag "Thu_Apr_24_22:56:58_2025" \
 --model "rnn" \
 --window 5 \
 --epoch-num 128 \
 --batch-size 256 \
---block-size 32 \
---lr-clf 0.001
+--block-size -1 \
+--lr 0.0001

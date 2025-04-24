@@ -5,7 +5,7 @@ import time
 import argparse
 import logging
 import torch
-from scripts.gan import train_gan, train_labeledgan, save_gan
+from scripts.gan import train_ec_gan, train_co_gan, save_gan
 from scripts.data_loader import get_dataloader, get_windows, get_dataset
 from sklearn.preprocessing import MinMaxScaler
 
@@ -15,16 +15,19 @@ def parse_args():
     parser.add_argument('-m', '--model', type=str)
     parser.add_argument('-w', '--window', type=int, default=5)
 
-    parser.add_argument('--epoch-num', type=int, default=100)
-    parser.add_argument('--batch-size', type=int, default=64)
-    parser.add_argument('--block-size', type=int, default=10)
-    parser.add_argument('--lr-clf', type=float, default=0.001)
+    # EC-GAN
+    parser.add_argument('--ec-epoch-num', type=int, default=100)
+    parser.add_argument('--ec-batch-size', type=int, default=64)
+    parser.add_argument('--ec-block-size', type=int, default=-1)
+    parser.add_argument('--ec-lr-g', type=float, default=0.001)
+    parser.add_argument('--ec-lr-d', type=float, default=0.001)
 
-    parser.add_argument('--epoch-num-gan', type=int, default=100)
-    parser.add_argument('--batch-size-gan', type=int, default=64)
-    parser.add_argument('--block-size-gan', type=int, default=10)
-    parser.add_argument('--lr-g', type=float, default=0.002)
-    parser.add_argument('--lr-d', type=float, default=0.002)
+    # CO-GAN
+    parser.add_argument('--co-epoch-num', type=int, default=100)
+    parser.add_argument('--co-batch-size', type=int, default=64)
+    parser.add_argument('--co-block-size', type=int, default=-1)
+    parser.add_argument('--co-lr-g', type=float, default=0.001)
+    parser.add_argument('--co-lr-d', type=float, default=0.001)
 
     return parser.parse_args()
 
@@ -44,9 +47,10 @@ def configure_logging(output, debug=False):
 def main():
     args = parse_args()
     current_time = time.asctime().replace(' ', '_')
-    os.makedirs(f'backups/{current_time}', exist_ok=True)
+    folder = f'backups/{current_time}_{args.model.upper()}'
+    os.makedirs(folder, exist_ok=True)
 
-    configure_logging(output=f'backups/{current_time}/logs.out', debug=args.verbose)
+    configure_logging(output=f'{folder}/train.out', debug=args.verbose)
     logging.info(args)
 
     if args.model == 'dnn':
@@ -72,16 +76,6 @@ def main():
     A, A_label = get_windows(A, A_label, args.window)
     B, B_label = get_windows(B, B_label, args.window)
 
-    # A_0 = A[np.apply_along_axis(np.mean, 1, A_label) == 0]
-    # A_1 = A[np.apply_along_axis(np.mean, 1, A_label) == 1]
-
-    A_train_loader, A_test_loader = get_dataloader(
-        A, A_label, device=device, batch_size=args.batch_size, train_test_split=.2)
-    # A_loader, _ = get_dataloader(
-    #     A, A_label, device=device, batch_size=args.batch_size)
-    # B_loader, _ = get_dataloader(
-    #     B, B_label, device=device, batch_size=args.batch_size)
-
     ### Train GAN
     generator = Generator(
         data_shape=[A.shape[1], A.shape[2]],
@@ -95,8 +89,11 @@ def main():
         label_embedding_size=8,
         ).to(device)
     
-    train_gan(generator, discriminator, A_train_loader, A_test_loader, device, args)
-    save_gan(generator, discriminator, loc=f'backups/{current_time}/ec-gan')
+    A_train_loader, A_test_loader = get_dataloader(
+        A, A_label, device=device, batch_size=args.ec_batch_size, train_test_split=.2)
+    
+    train_ec_gan(generator, discriminator, A_train_loader, A_test_loader, device, args)
+    save_gan(generator, discriminator, loc=f'{folder}/ec-gan')
 
     ### Train Labeled GAN
     generator = Generator(
@@ -110,8 +107,11 @@ def main():
         label_shape=[A_label.shape[1], 1],
         ).to(device)
 
-    train_labeledgan(generator, discriminator, A_train_loader, A_test_loader, device, args)
-    save_gan(generator, discriminator, loc=f'backups/{current_time}/co-gan')
+    A_train_loader, A_test_loader = get_dataloader(
+        A, A_label, device=device, batch_size=args.co_batch_size, train_test_split=.2)
+    
+    train_co_gan(generator, discriminator, A_train_loader, A_test_loader, device, args)
+    save_gan(generator, discriminator, loc=f'{folder}/co-gan')
 
 if __name__ == "__main__":
     main()

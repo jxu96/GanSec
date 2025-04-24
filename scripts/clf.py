@@ -9,11 +9,13 @@ def train_clf(clf, train_loader, test_loader, args):
     logger = logging.getLogger('train_clf')
 
     criterion = nn.BCELoss()
-    optimizer = torch.optim.Adam(clf.parameters(), lr=args.lr_clf)
+    optimizer = torch.optim.Adam(clf.parameters(), lr=args.lr)
 
     logger.info('Start training Classifier ..')
     logger.info('[epoch_num]: {}'.format(args.epoch_num))
-    logger.info('[lr_clf]: {}'.format(args.lr_clf))
+    logger.info('[lr]: {}'.format(args.lr))
+
+    block_size = args.block_size if args.block_size > 0 else (args.epoch_num // 10)
 
     for epoch in range(args.epoch_num):
         train_loss = .0
@@ -30,7 +32,7 @@ def train_clf(clf, train_loader, test_loader, args):
             train_loss += loss.item()
         train_loss /= len(train_loader)
 
-        if (epoch+1) % args.block_size == 0 or epoch == 0:
+        if (epoch+1) % block_size == 0 or epoch == 0:
             test_loss = .0
             clf.eval()
 

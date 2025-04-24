@@ -1,6 +1,7 @@
 #!/usr/bin/sh
 
 python3 eval_dist.py \
---tag "Wed_Apr_23_09:42:50_2025_DNN" \
+--tag "Thu_Apr_24_22:57:08_2025" \
 --model "dnn" \
---window 5
+--window 5 \
+--loop 100

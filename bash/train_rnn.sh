@@ -3,12 +3,13 @@
 python3 train.py \
 --model rnn \
 --window 5 \
---epoch-num 128 \
---batch-size 256 \
---block-size 64 \
---lr-clf 0.01 \
---epoch-num-gan 20480 \
---batch-size-gan 64 \
---block-size-gan 2560 \
---lr-g 0.015 \
---lr-d 0.008
+--ec-epoch-num 500 \
+--ec-batch-size 64 \
+--ec-block-size -1 \
+--ec-lr-g 0.0001 \
+--ec-lr-d 0.0001 \
+--co-epoch-num 500 \
+--co-batch-size 64 \
+--co-block-size -1 \
+--co-lr-g 0.0001 \
+--co-lr-d 0.0001
