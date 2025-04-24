@@ -3,9 +3,9 @@ import matplotlib
 import matplotlib.pyplot as plt
 from scipy.io import loadmat
 
-dnn_res = 'backups/Wed_Apr_23_09:42:50_2025_DNN/eval.mat'
-rnn_res = 'backups/Wed_Apr_23_09:40:10_2025_RNN/eval.mat'
-cnn_res = 'backups/Wed_Apr_23_09:37:55_2025_CNN/eval.mat'
+dnn_res = 'saved/dnn/eval.mat'
+rnn_res = 'saved/rnn/eval.mat'
+cnn_res = 'saved/cnn/eval.mat'
 
 # baselines
 tanogan_res = 'backups/tanogan/eval.mat'
@@ -54,8 +54,8 @@ plt.ylabel("Accuracy on Dataset B")    # y-axis label
 plt.title("Benchmark Comparison of Different Methods")  # title
 plt.legend()  # show legend
 
-plt.savefig("benchmark_results.png", dpi=800, bbox_inches='tight')
-# plt.savefig("benchmark_results.pdf", dpi=800, bbox_inches='tight')
+plt.savefig("benchmark_results_acc_ec.png", dpi=800, bbox_inches='tight')
+plt.savefig("benchmark_results_acc_ec.pdf", dpi=800, bbox_inches='tight')
 
 ## CO-GAN
 plt.figure(figsize=(10, 6))  # Adjust figure size
@@ -77,5 +77,5 @@ plt.ylabel("Accuracy on Dataset B")    # y-axis label
 plt.title("Benchmark Comparison of Different Methods")  # title
 plt.legend()  # show legend
 
-plt.savefig("benchmark_results_co.png", dpi=800, bbox_inches='tight')
-# plt.savefig("benchmark_results.pdf", dpi=800, bbox_inches='tight')
+plt.savefig("benchmark_results_acc_co.png", dpi=800, bbox_inches='tight')
+plt.savefig("benchmark_results_acc_co.pdf", dpi=800, bbox_inches='tight')
