@@ -1,20 +1,17 @@
 import os
-import random
 import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
 import torch.optim as optim
-import torch.utils.data
-import torchvision
 import torch.nn.init as init
 from torch.autograd import Variable
-import datetime
 from models.tanogan import LSTMGenerator, LSTMDiscriminator
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 from scripts.data_loader import get_dataloader, get_dataset, get_windows
 from scripts.gan import save_gan, load_gan
 from scripts.clf import train_clf, evaluate_clf
+from scripts.eval_dist import calculate_fid_tabular, calculate_mmd_rbf
 from scipy.io import savemat
 
 class Classifier(nn.Module):
@@ -39,6 +36,11 @@ class Classifier(nn.Module):
         x = torch.flatten(data, 1)
         return self.model(x)
 
+def gen_synthetic(gen, amount, label):
+    noise = torch.randn(amount, 72, 1)
+    x_flag, _ = gen(noise)
+    y_flag = np.full((amount,1), label)
+    return x_flag.detach().cpu().numpy(), y_flag
 
 class ArgsTrn:
     workers=4
@@ -69,8 +71,8 @@ B[B.columns] = scaler.transform(B)
 A, A_label = A.to_numpy().reshape(-1, 72, 1), A_label.reshape(-1, 1)
 B, B_label = B.to_numpy().reshape(-1, 72, 1), B_label.reshape(-1, 1)
 
-# A_0 = A[np.apply_along_axis(np.mean, 1, A_label) == 0]
-# A_1 = A[np.apply_along_axis(np.mean, 1, A_label) == 1]
+A_0 = A[np.apply_along_axis(np.mean, 1, A_label) == 0]
+A_1 = A[np.apply_along_axis(np.mean, 1, A_label) == 1]
 
 A_train_loader, A_test_loader = get_dataloader(
     A, A_label, device=device, batch_size=opt_trn.batch_size, train_test_split=.2)
@@ -145,53 +147,69 @@ else:
     os.makedirs('backups/tanogan', exist_ok=True)
     save_gan(netG, netD, 'backups/tanogan')
 
-augment_ratios = [.1, .2, .3, .5, .7, 1., 1.5, 2., 3., 5.]
+if not os.path.exists('backups/tanogan/eval.mat'):
+    augment_ratios = [.1, .2, .3, .5, .7, 1., 1.5, 2., 3., 5.]
 
-def gen_synthetic(gen, amount, label):
-    noise = torch.randn(amount, 72, 1)
-    x_flag, _ = gen(noise)
-    y_flag = np.full((amount,1), label)
-    return x_flag.detach().cpu().numpy(), y_flag
+    class Args:
+        lr_clf=0.001
+        batch_size=256
+        epoch_num=20
+        block_size=10
 
-class Args:
-    lr_clf=0.001
-    batch_size=256
-    epoch_num=20
-    block_size=10
+    args = Args()
+    outputs = {}
 
-args = Args()
-outputs = {}
+    for ratio in augment_ratios:
+        ratio_pc = int(ratio*100)
+        print('Augmenting with {}% ..'.format(ratio_pc))
+        amount = int(A.shape[0] * ratio // 2)
 
-for ratio in augment_ratios:
-    ratio_pc = int(ratio*100)
-    print('Augmenting with {}% ..'.format(ratio_pc))
-    amount = int(A.shape[0] * ratio // 2)
+        x_flag_0, y_flag_0 = gen_synthetic(netG, amount, 0)
+        x_flag_1, y_flag_1 = gen_synthetic(netG, amount, 1)
 
-    x_flag_0, y_flag_0 = gen_synthetic(netG, amount, 0)
-    x_flag_1, y_flag_1 = gen_synthetic(netG, amount, 1)
+        A_flag = np.concatenate([A, x_flag_0, x_flag_1], axis=0)
+        A_label_flag = np.concatenate([A_label, y_flag_0, y_flag_1], axis=0)
 
-    A_flag = np.concatenate([A, x_flag_0, x_flag_1], axis=0)
-    A_label_flag = np.concatenate([A_label, y_flag_0, y_flag_1], axis=0)
+        A_flag_train_loader, A_flag_test_loader = get_dataloader(A_flag, A_label_flag, device=device, batch_size=args.batch_size, train_test_split=.1)
 
-    A_flag_train_loader, A_flag_test_loader = get_dataloader(A_flag, A_label_flag, device=device, batch_size=args.batch_size, train_test_split=.1)
+        clf_augmented = Classifier(
+            data_shape=[A.shape[1], A.shape[2]],
+            label_shape=[1, 1],
+        ).to(device)
 
-    clf_augmented = Classifier(
-        data_shape=[A.shape[1], A.shape[2]],
-        label_shape=[1, 1],
-    ).to(device)
+        train_clf(clf_augmented, A_flag_train_loader, A_flag_test_loader, args)
 
-    train_clf(clf_augmented, A_flag_train_loader, A_flag_test_loader, args)
+        key_A = f'tanogan_A_{ratio_pc}'
+        key_B = f'tanogan_B_{ratio_pc}'
 
-    key_A = f'tanogan_A_{ratio_pc}'
-    key_B = f'tanogan_B_{ratio_pc}'
+        results_A = evaluate_clf(clf_augmented, A_loader, args)
+        results_B = evaluate_clf(clf_augmented, B_loader, args)
 
-    results_A = evaluate_clf(clf_augmented, A_loader, args)
-    results_B = evaluate_clf(clf_augmented, B_loader, args)
+        outputs[key_A] = results_A
+        outputs[key_B] = results_B
 
-    outputs[key_A] = results_A
-    outputs[key_B] = results_B
+        print('({}) Perf on A set: {}'.format(ratio_pc, results_A))
+        print('({}) Perf on B set: {}'.format(ratio_pc, results_B))
 
-    print('({}) Perf on A set: {}'.format(ratio_pc, results_A))
-    print('({}) Perf on B set: {}'.format(ratio_pc, results_B))
+    savemat('backups/tanogan/eval.mat', outputs)
 
-savemat('backups/tanogan/eval.mat', outputs)
+if not os.path.exists('backups/tanogan/dist.mat'):
+    results = {
+        'tanogan_0_fid': [],
+        'tanogan_0_mmd': [],
+        'tanogan_1_fid': [],
+        'tanogan_1_mmd': [],
+    }
+    eval_loop = 100
+
+    for i in range(eval_loop):
+        print(f'{i}/{eval_loop}')
+        x_flag_0, _ = gen_synthetic(netG, A_0.shape[0], 0)
+        results['tanogan_0_fid'].append(calculate_fid_tabular(A_0, x_flag_0))
+        results['tanogan_0_mmd'].append(calculate_mmd_rbf(A_0, x_flag_0))
+
+        x_flag_1, _ = gen_synthetic(netG, A_1.shape[0], 1)
+        results['tanogan_1_fid'].append(calculate_fid_tabular(A_1, x_flag_1))
+        results['tanogan_1_mmd'].append(calculate_mmd_rbf(A_1, x_flag_1))
+
+    savemat(f'backups/tanogan/dist.mat', results)

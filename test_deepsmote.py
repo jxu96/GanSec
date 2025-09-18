@@ -3,11 +3,11 @@ import torch.nn as nn
 from torch.utils.data import TensorDataset
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
-import time
 import os
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 from scripts.data_loader import get_dataloader, get_dataset, get_windows
+from scripts.eval_dist import calculate_fid_tabular, calculate_mmd_rbf
 from models.dnn import Classifier
 from scripts.clf import train_clf, evaluate_clf
 from scipy.io import savemat
@@ -17,7 +17,6 @@ label_dim = 5       # dimension of labels
 latent_dim = 64     # Example latent dimension (tune this)
 hidden_dim = 128    # Example hidden layer dimension (tune this)
 
-t3 = time.time()
 ##############################################################################
 
 class Args:
@@ -206,7 +205,6 @@ else:
 
     best_loss = np.inf
 
-    t0 = time.time()
     enc_optim = torch.optim.Adam(encoder.parameters(), lr = args.lr)
     dec_optim = torch.optim.Adam(decoder.parameters(), lr = args.lr)
 
@@ -250,41 +248,62 @@ else:
 
             best_loss = train_loss  
 
-augment_ratios = [.1, .2, .3, .5, .7, 1., 1.5, 2., 3., 5.]
+if not os.path.exists('backups/deepsmote/eval.mat'):
+    augment_ratios = [.1, .2, .3, .5, .7, 1., 1.5, 2., 3., 5.]
 
-outputs = {}
+    outputs = {}
 
-for ratio in augment_ratios:
-    ratio_pc = int(ratio*100)
-    print('Augmenting with {}% ..'.format(ratio_pc))
-    amount = int(A.shape[0] * ratio // 2)
+    for ratio in augment_ratios:
+        ratio_pc = int(ratio*100)
+        print('Augmenting with {}% ..'.format(ratio_pc))
+        amount = int(A.shape[0] * ratio // 2)
 
-    x_flag_0, y_flag_0 = augment(encoder, decoder, A_0, ratio/2)
-    x_flag_1, y_flag_1 = augment(encoder, decoder, A_1, ratio/2)
+        x_flag_0, y_flag_0 = augment(encoder, decoder, A_0, ratio/2)
+        x_flag_1, y_flag_1 = augment(encoder, decoder, A_1, ratio/2)
 
-    A_flag = np.concatenate([A, x_flag_0, x_flag_1], axis=0)
-    A_label_flag = np.concatenate([A_label, y_flag_0, y_flag_1], axis=0)
+        A_flag = np.concatenate([A, x_flag_0, x_flag_1], axis=0)
+        A_label_flag = np.concatenate([A_label, y_flag_0, y_flag_1], axis=0)
 
-    A_flag_train_loader, A_flag_test_loader = get_dataloader(A_flag, A_label_flag, device=device, batch_size=args.batch_size, train_test_split=.1)
+        A_flag_train_loader, A_flag_test_loader = get_dataloader(A_flag, A_label_flag, device=device, batch_size=args.batch_size, train_test_split=.1)
 
-    clf_augmented = Classifier(
-        data_shape=[A.shape[1], A.shape[2]],
-        label_shape=[5, 1],
-    ).to(device)
+        clf_augmented = Classifier(
+            data_shape=[A.shape[1], A.shape[2]],
+            label_shape=[5, 1],
+        ).to(device)
 
-    train_clf(clf_augmented, A_flag_train_loader, A_flag_test_loader, args)
+        train_clf(clf_augmented, A_flag_train_loader, A_flag_test_loader, args)
 
-    key_A = f'deepsmote_A_{ratio_pc}'
-    key_B = f'deepsmote_B_{ratio_pc}'
+        key_A = f'deepsmote_A_{ratio_pc}'
+        key_B = f'deepsmote_B_{ratio_pc}'
 
-    results_A = evaluate_clf(clf_augmented, A_loader, args)
-    results_B = evaluate_clf(clf_augmented, B_loader, args)
+        results_A = evaluate_clf(clf_augmented, A_loader, args)
+        results_B = evaluate_clf(clf_augmented, B_loader, args)
 
-    outputs[key_A] = results_A
-    outputs[key_B] = results_B
+        outputs[key_A] = results_A
+        outputs[key_B] = results_B
 
-    print('({}) Perf on A set: {}'.format(ratio_pc, results_A))
-    print('({}) Perf on B set: {}'.format(ratio_pc, results_B))
+        print('({}) Perf on A set: {}'.format(ratio_pc, results_A))
+        print('({}) Perf on B set: {}'.format(ratio_pc, results_B))
 
-savemat('backups/deepsmote/eval.mat', outputs)
+    savemat('backups/deepsmote/eval.mat', outputs)
 
+if not os.path.exists('backups/deepsmote/dist.mat'):
+    results = {
+        'deepsmote_0_fid': [],
+        'deepsmote_0_mmd': [],
+        'deepsmote_1_fid': [],
+        'deepsmote_1_mmd': [],
+    }
+    eval_loop = 100
+
+    for i in range(eval_loop):
+        print(f'{i}/{eval_loop}')
+        x_flag_0, _ = augment(encoder, decoder, A_0, 1.)
+        results['deepsmote_0_fid'].append(calculate_fid_tabular(A_0, x_flag_0))
+        results['deepsmote_0_mmd'].append(calculate_mmd_rbf(A_0, x_flag_0))
+
+        x_flag_1, _ = augment(encoder, decoder, A_1, 1.)
+        results['deepsmote_1_fid'].append(calculate_fid_tabular(A_1, x_flag_1))
+        results['deepsmote_1_mmd'].append(calculate_mmd_rbf(A_1, x_flag_1))
+
+    savemat(f'backups/deepsmote/dist.mat', results)
