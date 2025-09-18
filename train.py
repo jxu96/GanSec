@@ -8,6 +8,7 @@ import torch
 from scripts.gan import train_ec_gan, train_co_gan, save_gan
 from scripts.data_loader import get_dataloader, get_windows, get_dataset
 from sklearn.preprocessing import MinMaxScaler
+from scipy.io import savemat
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -92,8 +93,9 @@ def main():
     A_train_loader, A_test_loader = get_dataloader(
         A, A_label, device=device, batch_size=args.ec_batch_size, train_test_split=.2)
     
-    train_ec_gan(generator, discriminator, A_train_loader, A_test_loader, device, args)
+    traces = train_ec_gan(generator, discriminator, A_train_loader, A_test_loader, device, args)
     save_gan(generator, discriminator, loc=f'{folder}/ec-gan')
+    savemat(f'{folder}/traces_ec.mat', traces)
 
     ### Train Labeled GAN
     generator = Generator(
@@ -110,8 +112,9 @@ def main():
     A_train_loader, A_test_loader = get_dataloader(
         A, A_label, device=device, batch_size=args.co_batch_size, train_test_split=.2)
     
-    train_co_gan(generator, discriminator, A_train_loader, A_test_loader, device, args)
+    traces = train_co_gan(generator, discriminator, A_train_loader, A_test_loader, device, args)
     save_gan(generator, discriminator, loc=f'{folder}/co-gan')
+    savemat(f'{folder}/traces_co.mat', traces)
 
 if __name__ == "__main__":
     main()

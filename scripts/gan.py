@@ -15,6 +15,12 @@ def load_gan(generator, discriminator, loc):
 
 def train_ec_gan(generator, discriminator, train_loader, test_loader, device, args):
     logger = logging.getLogger('train_gan')
+    traces = {
+        'epochs': [],
+        'loss_d': [],
+        'loss_g': [],
+        'sample_g': [],
+    }
 
     if args.ec_epoch_num <= 0:
         return
@@ -106,13 +112,24 @@ def train_ec_gan(generator, discriminator, train_loader, test_loader, device, ar
 
             test_loss_g /= len(test_loader)
             test_loss_d /= len(test_loader)
+            traces['epochs'].append(epoch+1)
+            traces['loss_d'].append(test_loss_d)
+            traces['loss_g'].append(test_loss_g)
+            traces['sample_g'].append(xfake.detach().cpu().numpy())
             
             logger.info("epoch : {}, train loss d : {}, train loss g : {}, test loss d : {}, test loss g : {}".format(
                 epoch, train_loss_d, train_loss_g, test_loss_d, test_loss_g))
     logger.info('GAN training complete.')
+    return traces
 
 def train_co_gan(generator, discriminator, train_loader, test_loader, device, args):
     logger = logging.getLogger('train_gan')
+    traces = {
+        'epochs': [],
+        'loss_d': [],
+        'loss_g': [],
+        'sample_g': [],
+    }
 
     if args.co_epoch_num <= 0:
         return
@@ -213,10 +230,15 @@ def train_co_gan(generator, discriminator, train_loader, test_loader, device, ar
 
             test_loss_g /= len(test_loader)
             test_loss_d /= len(test_loader)
+            traces['epochs'].append(epoch+1)
+            traces['loss_d'].append(test_loss_d)
+            traces['loss_g'].append(test_loss_g)
+            traces['sample_g'].append(xfake.detach().cpu().numpy())
 
             logger.info("epoch : {}, train loss d : {}, train loss g : {}, test loss d : {}, test loss g : {}".format(
                 epoch, train_loss_d, train_loss_g, test_loss_d, test_loss_g))
     logger.info('GAN training complete.')
+    return traces
 
 def ec_gan_gen(generator, discriminator, amount, label, n_label, device, threshold_d=.0):
     logger = logging.getLogger('generate_synthetic')
